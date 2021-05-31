@@ -1,0 +1,6 @@
+apiVersion: tackle.io/v1alpha1
+kind: PostgreSQL
+metadata:
+  name: keycloak
+spec:
+  image: postgres:10.6

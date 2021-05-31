@@ -1,0 +1,6 @@
+apiVersion: tackle.io/v1alpha1
+kind: Rest
+metadata:
+  name: controls
+spec:
+  image: quay.io/konveyor/tackle-controls:0.0.1-SNAPSHOT-native

@@ -1,0 +1,6 @@
+apiVersion: tackle.io/v1alpha1
+kind: Keycloak
+metadata:
+  name: keycloak
+spec:
+  image: quay.io/keycloak/keycloak:12.0.4

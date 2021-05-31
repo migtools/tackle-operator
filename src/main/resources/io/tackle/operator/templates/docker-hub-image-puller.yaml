@@ -1,0 +1,5 @@
+kind: Secret
+apiVersion: v1
+type: kubernetes.io/dockerconfigjson
+metadata:
+  name: docker-hub-image-puller

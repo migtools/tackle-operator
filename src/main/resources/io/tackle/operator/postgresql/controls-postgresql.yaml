@@ -1,0 +1,6 @@
+apiVersion: tackle.io/v1alpha1
+kind: PostgreSQL
+metadata:
+  name: controls
+spec:
+  image: postgres:10.6
