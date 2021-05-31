@@ -1,0 +1,11 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: tackle-operator-test-catalog
+  namespace: olm
+  labels:
+    application: tackle
+spec:
+  sourceType: grpc
+  image: quay.io/mrizzi/tackle-operator-test-catalog:v1.0.0
+  displayName: Quarkus Operator Test Operators

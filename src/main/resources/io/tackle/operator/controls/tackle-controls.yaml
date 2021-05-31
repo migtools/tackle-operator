@@ -1,0 +1,7 @@
+apiVersion: tackle.io/v1alpha1
+kind: Microservice
+metadata:
+  name: controls
+spec:
+  rest: /io/tackle/operator/rest/controls-rest.yaml
+  postgreSQL: /io/tackle/operator/postgresql/controls-postgresql.yaml
