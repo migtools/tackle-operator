@@ -380,7 +380,7 @@ spec:
         displayName: Microservice for Tackle
   displayName: Tackle application
   provider:
-    name: Marco
+    name: Red Hat
   install:
     spec:
       permissions:
