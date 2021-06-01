@@ -98,13 +98,13 @@ public class TackleController implements ResourceController<Tackle> {
         // alternative approach: deploy 'microservice's
         MixedOperation<Microservice, KubernetesResourceList<Microservice>, Resource<Microservice>> microserviceClient = kubernetesClient.customResources(Microservice.class);
 
-        Microservice applicationInventory = microserviceClient.load(TackleController.class.getResourceAsStream("application-inventory/tackle-application-inventory.yaml")).get();
+        Microservice applicationInventory = microserviceClient.load(TackleController.class.getResourceAsStream("microservice/tackle-application-inventory.yaml")).get();
         microserviceClient.inNamespace(namespace).createOrReplace(applicationInventory);
 
-        Microservice controls = microserviceClient.load(TackleController.class.getResourceAsStream("controls/tackle-controls.yaml")).get();
+        Microservice controls = microserviceClient.load(TackleController.class.getResourceAsStream("microservice/tackle-controls.yaml")).get();
         microserviceClient.inNamespace(namespace).createOrReplace(controls);
 
-        Microservice pathfinder = microserviceClient.load(TackleController.class.getResourceAsStream("pathfinder/tackle-pathfinder.yaml")).get();
+        Microservice pathfinder = microserviceClient.load(TackleController.class.getResourceAsStream("microservice/tackle-pathfinder.yaml")).get();
         microserviceClient.inNamespace(namespace).createOrReplace(pathfinder);
 
         // deploy the UI instance
