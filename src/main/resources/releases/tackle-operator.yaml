@@ -1,7 +1,7 @@
 #apiVersion: v1
 #kind: Namespace
 #metadata:
-#  name: tackle-operator
+#  name: my-tackle-operator
 #---
 apiVersion: operators.coreos.com/v1
 kind: OperatorGroup
