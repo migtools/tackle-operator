@@ -1,17 +1,5 @@
 # tackle-operator project
 
-## Build
-
-### Native
-```shell
-$ ./mvnw clean package -Pnative -Dquarkus.container-image.build=true -Dquarkus.container-image.registry=quay.io -Dquarkus.container-image.tag=1.0.0-SNAPSHOT-native
-```
-
-### JVM
-```shell
-$ ./mvnw clean package -Dquarkus.container-image.build=true -Dquarkus.container-image.registry=quay.io -Dquarkus.container-image.tag=1.0.0-SNAPSHOT-jvm
-```
-
 ## Create namespace and CRDs
 ```shell
 $ kubectl create namespace tackle-operator
@@ -36,6 +24,30 @@ $ kubectl delete -f src/main/resources/k8s/tackle/tackle.yaml -n tackle-operator
 ## Delete CRDs
 ```shell
 $ kubectl delete -f src/main/resources/k8s/crds/crds.yaml
+```
+
+## Container image
+
+### Build
+```shell
+$ ./mvnw clean package -Pnative -Dquarkus.container-image.build=true -Dquarkus.container-image.registry=quay.io -Dquarkus.container-image.tag=1.0.0-SNAPSHOT-native
+$ podman push quay.io/$USERNAME/tackle-operator:1.0.0-SNAPSHOT-native
+```
+Alternatively, it can be also build in JVM mode using
+```shell
+$ ./mvnw clean package -Dquarkus.container-image.build=true -Dquarkus.container-image.registry=quay.io -Dquarkus.container-image.tag=1.0.0-SNAPSHOT-jvm
+```
+
+### Deploy
+```shell
+$ kubectl apply -f src/main/resources/k8s/operator.yaml -n tackle-operator
+```
+and then [Create CR](#create-cr).
+
+### Undeploy
+[Delete the Tackle CR](#delete-cr) and then:
+```shell
+$ kubectl delete -f src/main/resources/k8s/operator.yaml -n tackle-operator
 ```
 
 ## Operator Bundle
