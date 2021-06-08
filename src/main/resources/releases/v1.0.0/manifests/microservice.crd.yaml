@@ -22,6 +22,9 @@ spec:
                 postgreSQLImage:
                   description: URL for the PostgreSQL image
                   type: string
+              required:
+                - restImage
+                - postgreSQLImage
   scope: Namespaced
   names:
     plural: microservices

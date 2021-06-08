@@ -18,6 +18,8 @@ spec:
               properties:
                 image:
                   type: string
+              required:
+                - image
   scope: Namespaced
   names:
     plural: uis
