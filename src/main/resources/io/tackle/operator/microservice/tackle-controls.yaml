@@ -3,5 +3,5 @@ kind: Microservice
 metadata:
   name: controls
 spec:
-  rest: /io/tackle/operator/rest/controls-rest.yaml
-  postgreSQL: /io/tackle/operator/postgresql/controls-postgresql.yaml
+  restImage: quay.io/konveyor/tackle-controls:0.0.1-SNAPSHOT-native
+  postgreSQLImage: postgres:10.6

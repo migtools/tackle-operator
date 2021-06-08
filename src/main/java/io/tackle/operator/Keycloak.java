@@ -9,4 +9,4 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
 @RegisterForReflection
 @Group("tackle.io")
 @Version("v1alpha1")
-public class Keycloak extends CustomResource<BasicSpec, BasicStatus> implements Namespaced {}
+public class Keycloak extends CustomResource<MicroserviceSpec, BasicStatus> implements Namespaced {}

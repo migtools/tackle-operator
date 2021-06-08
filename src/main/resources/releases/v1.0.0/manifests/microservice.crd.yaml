@@ -16,11 +16,11 @@ spec:
             spec:
               type: object
               properties:
-                rest:
-                  description: Classpath for the Rest CR
+                restImage:
+                  description: URL for the Rest image
                   type: string
-                postgreSQL:
-                  description: Classpath for the PostgreSQL CR
+                postgreSQLImage:
+                  description: URL for the PostgreSQL image
                   type: string
   scope: Namespaced
   names:

@@ -3,5 +3,5 @@ kind: Microservice
 metadata:
   name: pathfinder
 spec:
-  rest: /io/tackle/operator/rest/pathfinder-rest.yaml
-  postgreSQL: /io/tackle/operator/postgresql/pathfinder-postgresql.yaml
+  restImage: quay.io/konveyor/tackle-pathfinder:0.0.1-SNAPSHOT-native
+  postgreSQLImage: postgres:10.6

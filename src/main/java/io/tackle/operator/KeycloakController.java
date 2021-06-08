@@ -32,12 +32,17 @@ public class KeycloakController extends AbstractController implements ResourceCo
 
     @Inject
     KubernetesClient kubernetesClient;
+    @Inject
+    PostgreSQLDeployer postgreSQLDeployer;
 
     @Override
     public UpdateControl<Keycloak> createOrUpdateResource(Keycloak keycloak, Context<Keycloak> context) {
         String namespace = keycloak.getMetadata().getNamespace();
         // Keycloak is unique, no need for suffixes in the name
         String name = metadataName(keycloak);
+
+        // Deploy the PostgreSQL DB
+        postgreSQLDeployer.createOrUpdateResource(kubernetesClient, namespace, name, keycloak.getSpec().getPostgreSQLImage());
 
         Secret secret = kubernetesClient.secrets().load(getClass().getResourceAsStream("templates/keycloak-secret.yaml")).get();
         applyDefaultMetadata(secret, name, namespace);
@@ -85,8 +90,8 @@ public class KeycloakController extends AbstractController implements ResourceCo
         envs.get(0).getValueFrom().getSecretKeyRef().setName(name);
         envs.get(1).getValueFrom().getSecretKeyRef().setName(name);
         // DB credentials from secret
-        envs.get(7).getValueFrom().getSecretKeyRef().setName(metadataName(keycloak, PostgreSQLController.RESOURCE_NAME_SUFFIX));
-        envs.get(8).getValueFrom().getSecretKeyRef().setName(metadataName(keycloak, PostgreSQLController.RESOURCE_NAME_SUFFIX));
+        envs.get(7).getValueFrom().getSecretKeyRef().setName(metadataName(keycloak, PostgreSQLDeployer.RESOURCE_NAME_SUFFIX));
+        envs.get(8).getValueFrom().getSecretKeyRef().setName(metadataName(keycloak, PostgreSQLDeployer.RESOURCE_NAME_SUFFIX));
 
         deployment
                 .getSpec()
@@ -94,7 +99,7 @@ public class KeycloakController extends AbstractController implements ResourceCo
                 .getSpec()
                 .getContainers()
                 .get(0)
-                .setImage(keycloak.getSpec().getImage());
+                .setImage(keycloak.getSpec().getRestImage());
         deployment
                 .getSpec()
                 .getTemplate()

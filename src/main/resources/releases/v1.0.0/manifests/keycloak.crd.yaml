@@ -16,7 +16,11 @@ spec:
             spec:
               type: object
               properties:
-                image:
+                restImage:
+                  description: URL for the Rest image
+                  type: string
+                postgreSQLImage:
+                  description: URL for the PostgreSQL image
                   type: string
   scope: Namespaced
   names:

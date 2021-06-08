@@ -3,5 +3,5 @@ kind: Microservice
 metadata:
   name: application-inventory
 spec:
-  rest: /io/tackle/operator/rest/application-inventory-rest.yaml
-  postgreSQL: /io/tackle/operator/postgresql/application-inventory-postgresql.yaml
+  restImage: quay.io/konveyor/tackle-application-inventory:0.0.1-SNAPSHOT-native
+  postgreSQLImage: postgres:10.6

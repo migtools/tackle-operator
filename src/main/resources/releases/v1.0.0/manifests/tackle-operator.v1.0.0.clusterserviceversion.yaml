@@ -353,21 +353,11 @@ spec:
         kind: Tackle
         description: Create a Tackle application.
         displayName: Tackle by Konveyor
-      - name: postgresqls.tackle.io
-        version: v1alpha1
-        kind: PostgreSQL
-        description: Create a PostgreSQL instance.
-        displayName: PostgreSQL for Tackle
       - name: keycloaks.tackle.io
         version: v1alpha1
         kind: Keycloak
         description: Create a Keycloak instance.
         displayName: Keycloak for Tackle
-      - name: rests.tackle.io
-        version: v1alpha1
-        kind: Rest
-        description: Create a Rest instance.
-        displayName: Rest for Tackle
       - name: uis.tackle.io
         version: v1alpha1
         kind: Ui
@@ -404,9 +394,7 @@ spec:
           - apiGroups:
               - tackle.io
             resources:
-              - postgresqls
               - keycloaks
-              - rests
               - uis
               - tackles
               - microservices
