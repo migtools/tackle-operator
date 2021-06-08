@@ -6,6 +6,7 @@ import io.fabric8.kubernetes.api.model.PersistentVolumeClaimVolumeSource;
 import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
+import io.fabric8.kubernetes.client.CustomResource;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.jboss.logging.Logger;
@@ -29,15 +30,17 @@ public class PostgreSQLDeployer {
     private static final String USERNAME_FORMAT = "user-%s";
     private final Logger log = Logger.getLogger(getClass());
 
-    public void createOrUpdateResource(KubernetesClient kubernetesClient, String namespace, String microserviceName, String image) {
-        String name = metadataName(microserviceName, RESOURCE_NAME_SUFFIX);
+    public <T> void createOrUpdateResource(KubernetesClient kubernetesClient, CustomResource<MicroserviceSpec, T> parentCustomResource) {
+        final String namespace = parentCustomResource.getMetadata().getNamespace();
+        final String parentName = parentCustomResource.getMetadata().getName();
+        final String name = metadataName(parentCustomResource, RESOURCE_NAME_SUFFIX);
         Secret secret = kubernetesClient.secrets().load(getClass().getResourceAsStream("templates/postgresql-secret.yaml")).get();
-        applyDefaultMetadata(secret, name, namespace);
+        applyDefaultMetadata(parentCustomResource, secret, RESOURCE_NAME_SUFFIX);
         // worth letting the user setting them?
         String password = RandomStringUtils.randomAlphanumeric(16);
         secret
                 .getData()
-                .put(DATABASE_NAME, Base64.getEncoder().encodeToString(String.format("%s_db", microserviceName.replace("-", "_")).getBytes()));
+                .put(DATABASE_NAME, Base64.getEncoder().encodeToString(String.format("%s_db", parentName.replace("-", "_")).getBytes()));
         secret
                 .getData()
                 .put(DATABASE_PASSWORD, Base64.getEncoder().encodeToString(password.getBytes()));
@@ -46,10 +49,10 @@ public class PostgreSQLDeployer {
                 .put(DATABASE_USER, Base64.getEncoder().encodeToString(String.format(USERNAME_FORMAT, RandomStringUtils.randomAlphanumeric(4)).getBytes()));
 
         PersistentVolumeClaim pvc = kubernetesClient.persistentVolumeClaims().load(getClass().getResourceAsStream("templates/postgresql-persistentvolumeclaim.yaml")).get();
-        applyDefaultMetadata(pvc, name, namespace);
+        applyDefaultMetadata(parentCustomResource, pvc, RESOURCE_NAME_SUFFIX);
 
         Deployment deployment = kubernetesClient.apps().deployments().load(getClass().getResourceAsStream("templates/postgresql-deployment.yaml")).get();
-        applyDefaultMetadata(deployment, name, namespace);
+        applyDefaultMetadata(parentCustomResource, deployment, RESOURCE_NAME_SUFFIX);
         deployment
                 .getSpec()
                 .getSelector()
@@ -85,7 +88,7 @@ public class PostgreSQLDeployer {
                 .getSpec()
                 .getContainers()
                 .get(0)
-                .setImage(image);
+                .setImage(parentCustomResource.getSpec().getPostgreSQLImage());
         deployment
                 .getSpec()
                 .getTemplate()
@@ -96,7 +99,7 @@ public class PostgreSQLDeployer {
         addDockerhubImagePullSecret(deployment, kubernetesClient.secrets().inNamespace(namespace));
         
         Service service = kubernetesClient.services().load(getClass().getResourceAsStream("templates/postgresql-service.yaml")).get();
-        applyDefaultMetadata(service, name, namespace);
+        applyDefaultMetadata(parentCustomResource, service, RESOURCE_NAME_SUFFIX);
         service
                 .getSpec()
                 .getSelector()

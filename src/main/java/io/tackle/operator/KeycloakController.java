@@ -1,15 +1,11 @@
 package io.tackle.operator;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
-import io.fabric8.kubernetes.api.model.DeletionPropagation;
 import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.fabric8.kubernetes.client.dsl.Resource;
-import io.fabric8.kubernetes.client.dsl.RollableScalableResource;
-import io.fabric8.kubernetes.client.dsl.ServiceResource;
 import io.javaoperatorsdk.operator.api.Context;
 import io.javaoperatorsdk.operator.api.Controller;
 import io.javaoperatorsdk.operator.api.DeleteControl;
@@ -22,8 +18,13 @@ import javax.inject.Inject;
 import java.util.Base64;
 import java.util.List;
 
+import static io.tackle.operator.Utils.LABEL_NAME;
+import static io.tackle.operator.Utils.addDockerhubImagePullSecret;
+import static io.tackle.operator.Utils.applyDefaultMetadata;
+import static io.tackle.operator.Utils.metadataName;
+
 @Controller(namespaces = Controller.WATCH_CURRENT_NAMESPACE)
-public class KeycloakController extends AbstractController implements ResourceController<Keycloak> {
+public class KeycloakController implements ResourceController<Keycloak> {
 
     public static final String ADMIN_USERNAME = "admin-username";
     public static final String ADMIN_PASSWORD = "admin-password";
@@ -42,10 +43,10 @@ public class KeycloakController extends AbstractController implements ResourceCo
         String name = metadataName(keycloak);
 
         // Deploy the PostgreSQL DB
-        postgreSQLDeployer.createOrUpdateResource(kubernetesClient, namespace, name, keycloak.getSpec().getPostgreSQLImage());
+        postgreSQLDeployer.createOrUpdateResource(kubernetesClient, keycloak);
 
         Secret secret = kubernetesClient.secrets().load(getClass().getResourceAsStream("templates/keycloak-secret.yaml")).get();
-        applyDefaultMetadata(secret, name, namespace);
+        applyDefaultMetadata(keycloak, secret);
         String password = RandomStringUtils.randomAlphanumeric(16);
         secret
                 .getData()
@@ -55,10 +56,10 @@ public class KeycloakController extends AbstractController implements ResourceCo
                 .put(ADMIN_PASSWORD, Base64.getEncoder().encodeToString(password.getBytes()));
 
         ConfigMap configMap = kubernetesClient.configMaps().load(getClass().getResourceAsStream("templates/keycloak-configmap.yaml")).get();
-        applyDefaultMetadata(configMap, name, namespace);
+        applyDefaultMetadata(keycloak, configMap);
 
         Deployment deployment = kubernetesClient.apps().deployments().load(getClass().getResourceAsStream("templates/keycloak-deployment.yaml")).get();
-        applyDefaultMetadata(deployment, name, namespace);
+        applyDefaultMetadata(keycloak, deployment);
         deployment
                 .getSpec()
                 .getSelector()
@@ -110,7 +111,7 @@ public class KeycloakController extends AbstractController implements ResourceCo
         addDockerhubImagePullSecret(deployment, kubernetesClient.secrets().inNamespace(namespace));
 
         Service service = kubernetesClient.services().load(getClass().getResourceAsStream("templates/keycloak-service.yaml")).get();
-        applyDefaultMetadata(service, name, namespace);
+        applyDefaultMetadata(keycloak, service);
         service
                 .getSpec()
                 .getSelector()
@@ -138,52 +139,6 @@ public class KeycloakController extends AbstractController implements ResourceCo
         String namespace = keycloak.getMetadata().getNamespace();
         String name = metadataName(keycloak);
         log.infof("Execution deleteResource for '%s' in namespace '%s'", name, namespace);
-
-        log.infof("Deleting Service '%s' in namespace '%s'", name, namespace);
-        ServiceResource<Service> service =
-                kubernetesClient
-                        .services()
-                        .inNamespace(namespace)
-                        .withName(name);
-        if (service.get() != null) {
-            service.delete();
-        }
-        log.infof("Deleted Service '%s' in namespace '%s'", name, namespace);
-
-        log.infof("Deleting Deployment '%s' in namespace '%s'", name, namespace);
-        RollableScalableResource<Deployment> deployment =
-                kubernetesClient
-                        .apps()
-                        .deployments()
-                        .inNamespace(namespace)
-                        .withName(name);
-        if (deployment.get() != null) {
-            deployment.withPropagationPolicy(DeletionPropagation.FOREGROUND).delete();
-        }
-        log.infof("Deleted Deployment '%s' in namespace '%s' with propagation", name, namespace);
-
-        log.infof("Deleting ConfigMap '%s' in namespace '%s'", name, namespace);
-        Resource<ConfigMap> configMap =
-                kubernetesClient
-                        .configMaps()
-                        .inNamespace(namespace)
-                        .withName(name);
-        if (configMap.get() != null) {
-            configMap.delete();
-        }
-        log.infof("Deleted ConfigMap '%s' in namespace '%s'", name, namespace);
-
-        log.infof("Deleting Secret '%s' in namespace '%s'", name, namespace);
-        Resource<Secret> secret =
-                kubernetesClient
-                        .secrets()
-                        .inNamespace(namespace)
-                        .withName(name);
-        if (secret.get() != null) {
-            secret.delete();
-        }
-        log.infof("Deleted Secret '%s' in namespace '%s'", name, namespace);
-
         return DeleteControl.DEFAULT_DELETE;
     }
 

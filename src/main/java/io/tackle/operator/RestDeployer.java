@@ -3,6 +3,7 @@ package io.tackle.operator;
 import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
+import io.fabric8.kubernetes.client.CustomResource;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import org.jboss.logging.Logger;
 
@@ -19,12 +20,14 @@ public class RestDeployer {
     private static final String RESOURCE_NAME_SUFFIX = "rest"; 
     private final Logger log = Logger.getLogger(getClass());
 
-    public void createOrUpdateResource(KubernetesClient kubernetesClient, String namespace, String microserviceName, String image) {
-        String name = metadataName(microserviceName, RESOURCE_NAME_SUFFIX);
+    public <T> void createOrUpdateResource(KubernetesClient kubernetesClient, CustomResource<MicroserviceSpec, T> parentCustomResource) {
+        final String namespace = parentCustomResource.getMetadata().getNamespace();
+        final String parentName = parentCustomResource.getMetadata().getName();
+        final String name = metadataName(parentCustomResource, RESOURCE_NAME_SUFFIX);
         log.infof("Execution createOrUpdateResource for '%s' in namespace '%s'", name, namespace);
 
         Deployment deployment = kubernetesClient.apps().deployments().load(getClass().getResourceAsStream("templates/rest-deployment.yaml")).get();
-        applyDefaultMetadata(deployment, name, namespace);
+        applyDefaultMetadata(parentCustomResource, deployment, RESOURCE_NAME_SUFFIX);
         deployment
                 .getSpec()
                 .getSelector()
@@ -44,15 +47,15 @@ public class RestDeployer {
                 .get(0)
                 .getEnv();
         // env are positional in the provided yaml deployment
-        envs.get(1).getValueFrom().getSecretKeyRef().setName(metadataName(microserviceName, PostgreSQLDeployer.RESOURCE_NAME_SUFFIX));
-        envs.get(2).getValueFrom().getSecretKeyRef().setName(metadataName(microserviceName, PostgreSQLDeployer.RESOURCE_NAME_SUFFIX));
+        envs.get(1).getValueFrom().getSecretKeyRef().setName(metadataName(parentCustomResource, PostgreSQLDeployer.RESOURCE_NAME_SUFFIX));
+        envs.get(2).getValueFrom().getSecretKeyRef().setName(metadataName(parentCustomResource, PostgreSQLDeployer.RESOURCE_NAME_SUFFIX));
         deployment
                 .getSpec()
                 .getTemplate()
                 .getSpec()
                 .getContainers()
                 .get(0)
-                .setImage(image);
+                .setImage(parentCustomResource.getSpec().getRestImage());
         deployment
                 .getSpec()
                 .getTemplate()
@@ -68,7 +71,7 @@ public class RestDeployer {
                 .get(0)
                 .getLivenessProbe()
                 .getHttpGet()
-                .setPath(String.format("/%s/q/health/live", microserviceName));
+                .setPath(String.format("/%s/q/health/live", parentName));
         deployment
                 .getSpec()
                 .getTemplate()
@@ -77,10 +80,10 @@ public class RestDeployer {
                 .get(0)
                 .getReadinessProbe()
                 .getHttpGet()
-                .setPath(String.format("/%s/q/health/ready", microserviceName));
+                .setPath(String.format("/%s/q/health/ready", parentName));
 
         Service service = kubernetesClient.services().load(getClass().getResourceAsStream("templates/rest-service.yaml")).get();
-        applyDefaultMetadata(service, name, namespace);
+        applyDefaultMetadata(parentCustomResource, service, RESOURCE_NAME_SUFFIX);
         service
                 .getSpec()
                 .getSelector()

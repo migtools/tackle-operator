@@ -1,6 +1,8 @@
 package io.tackle.operator;
 
 import io.fabric8.kubernetes.api.model.KubernetesResourceList;
+import io.fabric8.kubernetes.api.model.OwnerReference;
+import io.fabric8.kubernetes.api.model.OwnerReferenceBuilder;
 import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.MixedOperation;
@@ -26,21 +28,23 @@ public class TackleController implements ResourceController<Tackle> {
 
     @Override
     public DeleteControl deleteResource(Tackle tackle, Context<Tackle> context) {
-        String namespace = tackle.getMetadata().getNamespace();
-        kubernetesClient.customResources(Microservice.class).inNamespace(namespace).delete(kubernetesClient.customResources(Microservice.class).inNamespace(namespace).list().getItems());
-        kubernetesClient.customResources(Keycloak.class).inNamespace(namespace).delete(kubernetesClient.customResources(Keycloak.class).inNamespace(namespace).list().getItems());
-        kubernetesClient.customResources(Ui.class).inNamespace(namespace).delete(kubernetesClient.customResources(Ui.class).inNamespace(namespace).list().getItems());
-        Resource<Secret> dockerhubSecret = kubernetesClient.secrets().inNamespace(namespace).withName(AbstractController.DOCKERHUB_IMAGE_PULLER_SECRET_NAME);
-        if (dockerhubSecret.get() != null) {
-            dockerhubSecret.delete();
-            log.infof("Deleted Secret '%s' in namespace '%s'", AbstractController.DOCKERHUB_IMAGE_PULLER_SECRET_NAME, namespace);
-        }
+        final String namespace = tackle.getMetadata().getNamespace();
+        final String name = tackle.getMetadata().getName();
+        log.infof("Execution deleteResource for Tackle '%s' in namespace '%s'", name, namespace);
         return DeleteControl.DEFAULT_DELETE;
     }
 
     @Override
     public UpdateControl<Tackle> createOrUpdateResource(Tackle tackle, Context<Tackle> context) {
-        String namespace = tackle.getMetadata().getNamespace();
+        final String namespace = tackle.getMetadata().getNamespace();
+
+        final OwnerReference tackleOwnerReference = new OwnerReferenceBuilder()
+                .withApiVersion(tackle.getApiVersion())
+                .withKind(tackle.getKind())
+                .withName(tackle.getMetadata().getName())
+                .withUid(tackle.getMetadata().getUid())
+                .withBlockOwnerDeletion(true)
+                .build();
 
         final TackleSpec tackleSpec = tackle.getSpec();
         if (tackleSpec != null) {
@@ -50,6 +54,7 @@ public class TackleController implements ResourceController<Tackle> {
                 dockerhubSecret.getMetadata().setNamespace(namespace);
                 Map<String, String> data = Collections.singletonMap(".dockerconfigjson", dockerhubConfigJson);
                 dockerhubSecret.setData(data);
+                dockerhubSecret.getMetadata().getOwnerReferences().add(tackleOwnerReference);
                 kubernetesClient.secrets().inNamespace(namespace).createOrReplace(dockerhubSecret);
             }
             else log.warn("No 'spec.dockerhubConfigJson' has been provided: anonymous image pulling from Dockerhub could suffer for rate limits.");
@@ -59,23 +64,28 @@ public class TackleController implements ResourceController<Tackle> {
         // deploy Keycloak instance
         MixedOperation<Keycloak, KubernetesResourceList<Keycloak>, Resource<Keycloak>> keycloakClient = kubernetesClient.customResources(Keycloak.class);
         Keycloak keycloak = keycloakClient.load(TackleController.class.getResourceAsStream("keycloak/keycloak.yaml")).get();
+        keycloak.getMetadata().getOwnerReferences().add(tackleOwnerReference);
         keycloakClient.inNamespace(namespace).createOrReplace(keycloak);
 
         // deploy microservices
         MixedOperation<Microservice, KubernetesResourceList<Microservice>, Resource<Microservice>> microserviceClient = kubernetesClient.customResources(Microservice.class);
 
         Microservice applicationInventory = microserviceClient.load(TackleController.class.getResourceAsStream("microservice/tackle-application-inventory.yaml")).get();
+        applicationInventory.getMetadata().getOwnerReferences().add(tackleOwnerReference);
         microserviceClient.inNamespace(namespace).createOrReplace(applicationInventory);
 
         Microservice controls = microserviceClient.load(TackleController.class.getResourceAsStream("microservice/tackle-controls.yaml")).get();
+        controls.getMetadata().getOwnerReferences().add(tackleOwnerReference);
         microserviceClient.inNamespace(namespace).createOrReplace(controls);
 
         Microservice pathfinder = microserviceClient.load(TackleController.class.getResourceAsStream("microservice/tackle-pathfinder.yaml")).get();
+        pathfinder.getMetadata().getOwnerReferences().add(tackleOwnerReference);
         microserviceClient.inNamespace(namespace).createOrReplace(pathfinder);
 
         // deploy the UI instance
         MixedOperation<Ui, KubernetesResourceList<Ui>, Resource<Ui>> uiClient = kubernetesClient.customResources(Ui.class);
         Ui ui = uiClient.load(TackleController.class.getResourceAsStream("ui/tackle-ui.yaml")).get();
+        ui.getMetadata().getOwnerReferences().add(tackleOwnerReference);
         uiClient.inNamespace(namespace).createOrReplace(ui);
 
         BasicStatus status = new BasicStatus();

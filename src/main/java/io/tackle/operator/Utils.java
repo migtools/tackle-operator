@@ -18,23 +18,27 @@ public class Utils {
     public static final String LABEL_INSTANCE = "app.kubernetes.io/instance";
     public static final String DOCKERHUB_IMAGE_PULLER_SECRET_NAME = "docker-hub-image-puller";
 
-    public static <R extends HasMetadata & Namespaced> void applyDefaultMetadata(R resource, String name, String namespace) {
-        resource.getMetadata().setName(name);
-        resource.getMetadata().setNamespace(namespace);
-        resource.getMetadata().getLabels().put(LABEL_NAME, name);
-        resource.getMetadata().getLabels().put(LABEL_INSTANCE, String.format("%s-%d", name, ThreadLocalRandom.current().nextInt(0, 101)));
+    public static <P extends CustomResource, C extends HasMetadata & Namespaced> void applyDefaultMetadata(P parent, C child) {
+        applyDefaultMetadata(parent, child, null);
     }
 
-    public static <S, T> String metadataName(CustomResource<S, T> customResource) {
-        return customResource.getMetadata().getName();
+    public static <P extends CustomResource, C extends HasMetadata & Namespaced> void applyDefaultMetadata(P parent, C child, String suffix) {
+        final String name = metadataName(parent, suffix);
+        final String namespace = parent.getMetadata().getNamespace();
+        child.getMetadata().setName(name);
+        child.getMetadata().setNamespace(namespace);
+        child.getMetadata().getLabels().put(LABEL_NAME, name);
+        child.getMetadata().getLabels().put(LABEL_INSTANCE, String.format("%s-%d", name, ThreadLocalRandom.current().nextInt(0, 101)));
+        child.getMetadata().getOwnerReferences().addAll(parent.getMetadata().getOwnerReferences());
     }
 
-    public static <S, T> String metadataName(CustomResource<S, T> customResource, String suffix) {
-        return String.format("%s-%s", metadataName(customResource), suffix);
+    public static <C extends HasMetadata> String metadataName(C customResource) {
+        return metadataName(customResource, null);
     }
 
-    public static <S, T> String metadataName(String microserviceName, String suffix) {
-        return String.format("%s-%s", microserviceName, suffix);
+    public static <C extends HasMetadata> String metadataName(C customResource, String suffix) {
+        final String name = customResource.getMetadata().getName();
+        return suffix == null ? name : String.format("%s-%s", name, suffix);
     }
 
     public static void addDockerhubImagePullSecret(Deployment deployment, NonNamespaceOperation<Secret, SecretList, Resource<Secret>> secrets) {

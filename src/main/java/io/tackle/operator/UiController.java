@@ -1,13 +1,9 @@
 package io.tackle.operator;
 
-import io.fabric8.kubernetes.api.model.DeletionPropagation;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.networking.v1.Ingress;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.fabric8.kubernetes.client.dsl.Resource;
-import io.fabric8.kubernetes.client.dsl.RollableScalableResource;
-import io.fabric8.kubernetes.client.dsl.ServiceResource;
 import io.javaoperatorsdk.operator.api.Context;
 import io.javaoperatorsdk.operator.api.Controller;
 import io.javaoperatorsdk.operator.api.DeleteControl;
@@ -17,8 +13,12 @@ import org.jboss.logging.Logger;
 
 import javax.inject.Inject;
 
+import static io.tackle.operator.Utils.LABEL_NAME;
+import static io.tackle.operator.Utils.applyDefaultMetadata;
+import static io.tackle.operator.Utils.metadataName;
+
 @Controller(namespaces = Controller.WATCH_CURRENT_NAMESPACE)
-public class UiController extends AbstractController implements ResourceController<Ui> {
+public class UiController implements ResourceController<Ui> {
 
     private static final String RESOURCE_NAME_SUFFIX = "ui"; 
     private final Logger log = Logger.getLogger(getClass());
@@ -32,7 +32,7 @@ public class UiController extends AbstractController implements ResourceControll
         log.infof("Execution createOrUpdateResource for '%s' in namespace '%s'", name, namespace);
 
         Deployment deployment = kubernetesClient.apps().deployments().load(getClass().getResourceAsStream("templates/ui-deployment.yaml")).get();
-        applyDefaultMetadata(deployment, name, namespace);
+        applyDefaultMetadata(ui, deployment, RESOURCE_NAME_SUFFIX);
         deployment
                 .getSpec()
                 .getSelector()
@@ -61,10 +61,10 @@ public class UiController extends AbstractController implements ResourceControll
         // all env must be set
 
         Service service = kubernetesClient.services().load(getClass().getResourceAsStream("templates/ui-service.yaml")).get();
-        applyDefaultMetadata(service, name, namespace);
+        applyDefaultMetadata(ui, service, RESOURCE_NAME_SUFFIX);
         
-        Ingress ingress = loadYaml(Ingress.class, "templates/ui-ingress.yaml");
-        applyDefaultMetadata(ingress, name, namespace);
+        Ingress ingress = kubernetesClient.network().v1().ingresses().load(getClass().getResourceAsStream("templates/ui-ingress.yaml")).get();
+        applyDefaultMetadata(ui, ingress, RESOURCE_NAME_SUFFIX);
         ingress
                 .getSpec()
                 .getRules()
@@ -95,43 +95,6 @@ public class UiController extends AbstractController implements ResourceControll
         String namespace = ui.getMetadata().getNamespace();
         String name = metadataName(ui, RESOURCE_NAME_SUFFIX);
         log.infof("Execution deleteResource for '%s' in namespace '%s'", name, namespace);
-
-        log.infof("Deleting Ingress '%s' in namespace '%s'", name, namespace);
-        Resource<Ingress> ingress =
-                kubernetesClient
-                        .network()
-                        .v1()
-                        .ingresses()
-                        .inNamespace(namespace)
-                        .withName(name);
-        if (ingress.get() != null) {
-            ingress.delete();
-        }
-        log.infof("Deleted Ingress '%s' in namespace '%s'", name, namespace);
-
-        log.infof("Deleting Service '%s' in namespace '%s'", name, namespace);
-        ServiceResource<Service> service =
-                kubernetesClient
-                        .services()
-                        .inNamespace(namespace)
-                        .withName(name);
-        if (service.get() != null) {
-            service.delete();
-        }
-        log.infof("Deleted Service '%s' in namespace '%s'", name, namespace);
-
-        log.infof("Deleting Deployment '%s' in namespace '%s'", name, namespace);
-        RollableScalableResource<Deployment> deployment =
-                kubernetesClient
-                        .apps()
-                        .deployments()
-                        .inNamespace(namespace)
-                        .withName(name);
-        if (deployment.get() != null) {
-            deployment.withPropagationPolicy(DeletionPropagation.FOREGROUND).delete();
-        }
-        log.infof("Deleted Deployment '%s' in namespace '%s' with propagation", name, namespace);
-
         return DeleteControl.DEFAULT_DELETE;
     }
 
