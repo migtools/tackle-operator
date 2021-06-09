@@ -71,7 +71,7 @@ spec:
         displayName: (Internal-only) Microservice
   displayName: Tackle Operator
   provider:
-    name: Red Hat
+    name: Konveyor.io
   install:
     spec:
       permissions:
