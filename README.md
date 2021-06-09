@@ -11,6 +11,16 @@ $ kubectl apply -f src/main/resources/k8s/crds/crds.yaml
 $ ./mvnw clean quarkus:dev -Dquarkus.kubernetes-client.namespace=tackle-operator
 ```
 
+## Start a local instance
+To run locally for testing purposes, build it using
+```shell
+$ ./mvnw clean package
+```
+and then run executing
+```shell
+$ java -Dquarkus.kubernetes-client.namespace=tackle-operator -jar target/quarkus-app/quarkus-run.jar
+```
+
 ## Create CR
 ```shell
 $ kubectl apply -f src/main/resources/k8s/tackle/tackle.yaml -n tackle-operator
