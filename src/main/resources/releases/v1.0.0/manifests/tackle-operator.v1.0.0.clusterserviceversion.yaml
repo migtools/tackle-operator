@@ -23,9 +23,9 @@ metadata:
     createdAt: 2021-05-31
     repository: https://github.com/konveyor/tackle-operator
     support: https://github.com/konveyor/tackle-operator/issues
-    description: Sample Quarkus operator
+    description: Tackle operator
 spec:
-  description: This is a sample Quarkus operator.
+  description: This is the Tackle operator.
   version: 1.0.0
   maintainers:
     - email: windup-eng@redhat.com
@@ -368,7 +368,7 @@ spec:
         kind: Microservice
         description: Create a Microservice instance.
         displayName: Microservice for Tackle
-  displayName: Tackle application
+  displayName: Tackle Operator
   provider:
     name: Red Hat
   install:
@@ -397,6 +397,7 @@ spec:
               - keycloaks
               - uis
               - tackles
+              - tackles/finalizers
               - microservices
             verbs:
               - '*'
@@ -411,6 +412,12 @@ spec:
               - networking.k8s.io
             resources:
               - ingresses
+            verbs:
+              - '*'
+          - apiGroups:
+              - route.openshift.io
+            resources:
+              - routes
             verbs:
               - '*'
           serviceAccountName: tackle-operator

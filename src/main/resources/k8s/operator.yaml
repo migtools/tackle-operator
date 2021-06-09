@@ -82,11 +82,10 @@ rules:
 - apiGroups:
   - tackle.io
   resources:
-  - postgresqls
   - keycloaks
-  - rests
   - uis
   - tackles
+  - tackles/finalizers
   - microservices
   verbs:
   - '*'
@@ -101,6 +100,12 @@ rules:
     - networking.k8s.io
   resources:
     - ingresses
+  verbs:
+    - '*'
+- apiGroups:
+    - route.openshift.io
+  resources:
+    - routes
   verbs:
     - '*'
 #---
