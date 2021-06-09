@@ -1,6 +1,0 @@
-apiVersion: tackle.io/v1alpha1
-kind: PostgreSQL
-metadata:
-  name: application-inventory
-spec:
-  image: postgres:10.6
