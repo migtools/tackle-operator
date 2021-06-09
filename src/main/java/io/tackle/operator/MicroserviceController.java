@@ -1,6 +1,11 @@
 package io.tackle.operator;
 
+import io.fabric8.kubernetes.api.model.KubernetesResourceList;
+import io.fabric8.kubernetes.api.model.ListOptions;
+import io.fabric8.kubernetes.api.model.ListOptionsBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.dsl.MixedOperation;
+import io.fabric8.kubernetes.client.dsl.Resource;
 import io.javaoperatorsdk.operator.api.Context;
 import io.javaoperatorsdk.operator.api.Controller;
 import io.javaoperatorsdk.operator.api.DeleteControl;
@@ -27,8 +32,27 @@ public class MicroserviceController implements ResourceController<Microservice> 
     public UpdateControl<Microservice> createOrUpdateResource(Microservice microservice, Context<Microservice> context) {
         String namespace = microservice.getMetadata().getNamespace();
         String name = metadataName(microservice);
-        log.infof("Execution createOrUpdateResource for '%s' in namespace '%s'", name, namespace);
 
+        MixedOperation<Microservice, KubernetesResourceList<Microservice>, Resource<Microservice>> microserviceClient = kubernetesClient.customResources(Microservice.class);
+        final String restImage = microservice.getSpec().getRestImage();
+        ListOptions listOptions = new ListOptionsBuilder().withFieldSelector("metadata.name!=" + name).build();
+        MixedOperation<Tackle, KubernetesResourceList<Tackle>, Resource<Tackle>> tackleClient = kubernetesClient.customResources(Tackle.class);
+        if (tackleClient.inNamespace(namespace).list().getItems().isEmpty()) {
+            log.errorf("Standalone '%s' Microservice CR isn't allowed: create a Tackle CR to instantiate Tackle application", name);
+            microserviceClient.delete(microservice);
+            return UpdateControl.noUpdate();
+        } else if (microserviceClient
+                .inNamespace(namespace)
+                .list(listOptions)
+                .getItems()
+                .stream()
+                .anyMatch(microserviceAlreadyDeployed -> restImage.equals(microserviceAlreadyDeployed.getSpec().getRestImage()))) {
+            log.warnf("Only one Microservice CR running %s image is allowed: '%s' is going to be deleted", restImage, name);
+            microserviceClient.delete(microservice);
+            return UpdateControl.noUpdate();
+        }
+
+        log.infof("Execution createOrUpdateResource for '%s' in namespace '%s'", name, namespace);
         log.infof("Creating or updating PostgreSQL for Microservice '%s' in namespace '%s'", name, namespace);
         postgreSQLDeployer.createOrUpdateResource(kubernetesClient, microservice);
 

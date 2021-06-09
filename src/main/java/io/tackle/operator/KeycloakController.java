@@ -2,10 +2,13 @@ package io.tackle.operator;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.EnvVar;
+import io.fabric8.kubernetes.api.model.KubernetesResourceList;
 import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.dsl.MixedOperation;
+import io.fabric8.kubernetes.client.dsl.Resource;
 import io.javaoperatorsdk.operator.api.Context;
 import io.javaoperatorsdk.operator.api.Controller;
 import io.javaoperatorsdk.operator.api.DeleteControl;
@@ -42,6 +45,19 @@ public class KeycloakController implements ResourceController<Keycloak> {
         // Keycloak is unique, no need for suffixes in the name
         String name = metadataName(keycloak);
 
+        MixedOperation<Keycloak, KubernetesResourceList<Keycloak>, Resource<Keycloak>> keycloakClient = kubernetesClient.customResources(Keycloak.class);
+        MixedOperation<Tackle, KubernetesResourceList<Tackle>, Resource<Tackle>> tackleClient = kubernetesClient.customResources(Tackle.class);
+        if (tackleClient.inNamespace(namespace).list().getItems().isEmpty()) {
+            log.errorf("Standalone '%s' Keycloak CR isn't allowed: create a Tackle CR to instantiate Tackle application", name);
+            keycloakClient.delete(keycloak);
+            return UpdateControl.noUpdate();
+        } else if (keycloakClient.inNamespace(namespace).list().getItems().size() > 1) {
+            log.warnf("Only one Keycloak CR is allowed: '%s' is going to be deleted", name);
+            keycloakClient.delete(keycloak);
+            return UpdateControl.noUpdate();
+        }
+
+        log.infof("Execution createOrUpdateResource for '%s' in namespace '%s'", name, namespace);
         // Deploy the PostgreSQL DB
         postgreSQLDeployer.createOrUpdateResource(kubernetesClient, keycloak);
 

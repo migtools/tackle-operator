@@ -1,8 +1,11 @@
 package io.tackle.operator;
 
+import io.fabric8.kubernetes.api.model.KubernetesResourceList;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.networking.v1.Ingress;
+import io.fabric8.kubernetes.client.dsl.MixedOperation;
+import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.openshift.api.model.Route;
 import io.fabric8.openshift.client.OpenShiftClient;
 import io.javaoperatorsdk.operator.api.Context;
@@ -30,6 +33,19 @@ public class UiController implements ResourceController<Ui> {
     public UpdateControl<Ui> createOrUpdateResource(Ui ui, Context<Ui> context) {
         String namespace = ui.getMetadata().getNamespace();
         String name = metadataName(ui, RESOURCE_NAME_SUFFIX);
+
+        MixedOperation<Ui, KubernetesResourceList<Ui>, Resource<Ui>> uiClient = openShiftClient.customResources(Ui.class);
+        MixedOperation<Tackle, KubernetesResourceList<Tackle>, Resource<Tackle>> tackleClient = openShiftClient.customResources(Tackle.class);
+        if (tackleClient.inNamespace(namespace).list().getItems().isEmpty()) {
+            log.errorf("Standalone '%s' Ui CR isn't allowed: create a Tackle CR to instantiate Tackle application", name);
+            uiClient.delete(ui);
+            return UpdateControl.noUpdate();
+        } else if (uiClient.inNamespace(namespace).list().getItems().size() > 1) {
+            log.warnf("Only one Ui CR is allowed: '%s' is going to be deleted", name);
+            uiClient.delete(ui);
+            return UpdateControl.noUpdate();
+        }
+
         log.infof("Execution createOrUpdateResource for '%s' in namespace '%s'", name, namespace);
 
         Deployment deployment = openShiftClient.apps().deployments().load(getClass().getResourceAsStream("templates/ui-deployment.yaml")).get();
