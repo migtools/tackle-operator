@@ -92,19 +92,19 @@ public class TackleController implements ResourceController<Tackle> {
 
         Microservice applicationInventory = microserviceClient.load(TackleController.class.getResourceAsStream("microservice/tackle-application-inventory.yaml")).get();
         applicationInventory.getMetadata().getOwnerReferences().add(tackleOwnerReference);
-        applicationInventory.getSpec().setOidcAuthServerUrl(String.format("http://%s:8080/auth/realms/quarkus", keycloak.getMetadata().getName()));
+        applicationInventory.getSpec().setOidcAuthServerUrl(String.format("http://%s:8080/auth/realms/tackle", keycloak.getMetadata().getName()));
         applicationInventory.getMetadata().setName(String.format("%s-%s", name, applicationInventory.getMetadata().getName()));
         microserviceClient.inNamespace(namespace).createOrReplace(applicationInventory);
 
         Microservice controls = microserviceClient.load(TackleController.class.getResourceAsStream("microservice/tackle-controls.yaml")).get();
         controls.getMetadata().getOwnerReferences().add(tackleOwnerReference);
-        controls.getSpec().setOidcAuthServerUrl(String.format("http://%s:8080/auth/realms/quarkus", keycloak.getMetadata().getName()));
+        controls.getSpec().setOidcAuthServerUrl(String.format("http://%s:8080/auth/realms/tackle", keycloak.getMetadata().getName()));
         controls.getMetadata().setName(String.format("%s-%s", name, controls.getMetadata().getName()));
         microserviceClient.inNamespace(namespace).createOrReplace(controls);
 
         Microservice pathfinder = microserviceClient.load(TackleController.class.getResourceAsStream("microservice/tackle-pathfinder.yaml")).get();
         pathfinder.getMetadata().getOwnerReferences().add(tackleOwnerReference);
-        pathfinder.getSpec().setOidcAuthServerUrl(String.format("http://%s:8080/auth/realms/quarkus", keycloak.getMetadata().getName()));
+        pathfinder.getSpec().setOidcAuthServerUrl(String.format("http://%s:8080/auth/realms/tackle", keycloak.getMetadata().getName()));
         pathfinder.getMetadata().setName(String.format("%s-%s", name, pathfinder.getMetadata().getName()));
         microserviceClient.inNamespace(namespace).createOrReplace(pathfinder);
 
