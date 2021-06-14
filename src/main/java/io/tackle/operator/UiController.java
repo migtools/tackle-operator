@@ -7,6 +7,7 @@ import io.fabric8.kubernetes.api.model.KubernetesResourceList;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.networking.v1.Ingress;
+import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.MixedOperation;
 import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.openshift.api.model.Route;
@@ -37,7 +38,7 @@ public class UiController implements ResourceController<Ui> {
 
     private final Logger log = Logger.getLogger(getClass());
     @Inject
-    OpenShiftClient openShiftClient;
+    KubernetesClient kubernetesClient;
 
     @Override
     public UpdateControl<Ui> createOrUpdateResource(Ui ui, Context<Ui> context) {
@@ -54,8 +55,8 @@ public class UiController implements ResourceController<Ui> {
             return UpdateControl.noUpdate();
         }
 
-        MixedOperation<Ui, KubernetesResourceList<Ui>, Resource<Ui>> uiClient = openShiftClient.customResources(Ui.class);
-        MixedOperation<Tackle, KubernetesResourceList<Tackle>, Resource<Tackle>> tackleClient = openShiftClient.customResources(Tackle.class);
+        MixedOperation<Ui, KubernetesResourceList<Ui>, Resource<Ui>> uiClient = kubernetesClient.customResources(Ui.class);
+        MixedOperation<Tackle, KubernetesResourceList<Tackle>, Resource<Tackle>> tackleClient = kubernetesClient.customResources(Tackle.class);
         if (tackleClient.inNamespace(namespace).list().getItems().isEmpty() ||
                 ui.getMetadata().getOwnerReferences().isEmpty()) {
             log.errorf("Standalone '%s' Ui CR isn't allowed: create a Tackle CR to instantiate Tackle application", name);
@@ -73,7 +74,7 @@ public class UiController implements ResourceController<Ui> {
 
         log.infof("Execution createOrUpdateResource for '%s' in namespace '%s'", name, namespace);
 
-        Deployment deployment = openShiftClient.apps().deployments().load(getClass().getResourceAsStream("templates/ui-deployment.yaml")).get();
+        Deployment deployment = kubernetesClient.apps().deployments().load(getClass().getResourceAsStream("templates/ui-deployment.yaml")).get();
         applyDefaultMetadata(ui, deployment);
         deployment
                 .getSpec()
@@ -112,7 +113,7 @@ public class UiController implements ResourceController<Ui> {
         envs.get(2).setValue(ui.getSpec().getPathfinderApiUrl());
         envs.get(5).setValue(ui.getSpec().getSsoApiUrl());
 
-        Service service = openShiftClient.services().load(getClass().getResourceAsStream("templates/ui-service.yaml")).get();
+        Service service = kubernetesClient.services().load(getClass().getResourceAsStream("templates/ui-service.yaml")).get();
         applyDefaultMetadata(ui, service);
         service
                 .getSpec()
@@ -120,13 +121,13 @@ public class UiController implements ResourceController<Ui> {
                 .put(LABEL_NAME, name);
 
         log.infof("Creating or updating Deployment '%s' in namespace '%s'", deployment.getMetadata().getName(), namespace);
-        openShiftClient.apps().deployments().inNamespace(namespace).createOrReplace(deployment);
+        kubernetesClient.apps().deployments().inNamespace(namespace).createOrReplace(deployment);
 
         log.infof("Creating or updating Service '%s' in namespace '%s'", service.getMetadata().getName(), namespace);
-        openShiftClient.services().inNamespace(namespace).createOrReplace(service);
+        kubernetesClient.services().inNamespace(namespace).createOrReplace(service);
 
-        if (!openShiftClient.isAdaptable(OpenShiftClient.class)) {
-            Ingress ingress = openShiftClient.network().v1().ingresses().load(getClass().getResourceAsStream("templates/ui-ingress.yaml")).get();
+        if (!kubernetesClient.isAdaptable(OpenShiftClient.class)) {
+            Ingress ingress = kubernetesClient.network().v1().ingresses().load(getClass().getResourceAsStream("templates/ui-ingress.yaml")).get();
             applyDefaultMetadata(ui, ingress);
             ingress
                     .getSpec()
@@ -139,8 +140,9 @@ public class UiController implements ResourceController<Ui> {
                     .getService()
                     .setName(name);
             log.infof("Creating or updating Ingress '%s' in namespace '%s'", ingress.getMetadata().getName(), namespace);
-            openShiftClient.network().v1().ingresses().inNamespace(namespace).createOrReplace(ingress);
+            kubernetesClient.network().v1().ingresses().inNamespace(namespace).createOrReplace(ingress);
         } else {
+            final OpenShiftClient openShiftClient = kubernetesClient.adapt(OpenShiftClient.class);
             final Route route = openShiftClient.routes().load(getClass().getResourceAsStream("templates/ui-route.yaml")).get();
             applyDefaultMetadata(ui, route);
             route
