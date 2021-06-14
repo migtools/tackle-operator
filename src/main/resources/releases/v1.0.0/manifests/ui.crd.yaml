@@ -17,9 +17,26 @@ spec:
               type: object
               properties:
                 image:
+                  description: URL of the UI image
+                  type: string
+                controlsApiUrl:
+                  description: URL of the Rest Controls backend
+                  type: string
+                applicationInventoryApiUrl:
+                  description: URL of the Rest Application Inventory backend
+                  type: string
+                pathfinderApiUrl:
+                  description: URL of the Rest Pathfinder backend
+                  type: string
+                ssoApiUrl:
+                  description: URL of the Rest SSO
                   type: string
               required:
                 - image
+                - controlsApiUrl
+                - applicationInventoryApiUrl
+                - pathfinderApiUrl
+                - ssoApiUrl
   scope: Namespaced
   names:
     plural: uis

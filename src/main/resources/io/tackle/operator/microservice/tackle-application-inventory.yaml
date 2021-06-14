@@ -5,3 +5,5 @@ metadata:
 spec:
   restImage: quay.io/konveyor/tackle-application-inventory:0.0.1-SNAPSHOT-native
   postgreSQLImage: postgres:10.6
+  databaseSchema: application_inventory_db
+  contextRoot: application-inventory

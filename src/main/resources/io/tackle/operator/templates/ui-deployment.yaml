@@ -29,17 +29,17 @@ spec:
               protocol: TCP
           env:
             - name: CONTROLS_API_URL
-              value: 'http://controls-rest:8080'
+              value: ""
             - name: APPLICATION_INVENTORY_API_URL
-              value: 'http://application-inventory-rest:8080'
+              value: ""
             - name: PATHFINDER_API_URL
-              value: 'http://pathfinder-rest:8080'
+              value: ""
             - name: SSO_REALM
               value: quarkus
             - name: SSO_CLIENT_ID
               value: tackle-ui
             - name: SSO_SERVER_URL
-              value: 'http://keycloak:8080'
+              value: ""
           livenessProbe:
             exec:
               command:

@@ -1,5 +1,6 @@
 package io.tackle.operator;
 
+import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.KubernetesResourceList;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
@@ -17,6 +18,9 @@ import org.jboss.logging.Logger;
 
 import javax.inject.Inject;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 import static io.tackle.operator.Utils.LABEL_NAME;
 import static io.tackle.operator.Utils.applyDefaultMetadata;
 import static io.tackle.operator.Utils.metadataName;
@@ -24,7 +28,6 @@ import static io.tackle.operator.Utils.metadataName;
 @Controller(namespaces = Controller.WATCH_CURRENT_NAMESPACE)
 public class UiController implements ResourceController<Ui> {
 
-    private static final String RESOURCE_NAME_SUFFIX = "ui"; 
     private final Logger log = Logger.getLogger(getClass());
     @Inject
     OpenShiftClient openShiftClient;
@@ -32,15 +35,20 @@ public class UiController implements ResourceController<Ui> {
     @Override
     public UpdateControl<Ui> createOrUpdateResource(Ui ui, Context<Ui> context) {
         String namespace = ui.getMetadata().getNamespace();
-        String name = metadataName(ui, RESOURCE_NAME_SUFFIX);
+        String name = metadataName(ui);
 
         MixedOperation<Ui, KubernetesResourceList<Ui>, Resource<Ui>> uiClient = openShiftClient.customResources(Ui.class);
         MixedOperation<Tackle, KubernetesResourceList<Tackle>, Resource<Tackle>> tackleClient = openShiftClient.customResources(Tackle.class);
-        if (tackleClient.inNamespace(namespace).list().getItems().isEmpty()) {
+        if (tackleClient.inNamespace(namespace).list().getItems().isEmpty() ||
+                ui.getMetadata().getOwnerReferences().isEmpty()) {
             log.errorf("Standalone '%s' Ui CR isn't allowed: create a Tackle CR to instantiate Tackle application", name);
             uiClient.delete(ui);
             return UpdateControl.noUpdate();
-        } else if (uiClient.inNamespace(namespace).list().getItems().size() > 1) {
+        } else if (uiClient.inNamespace(namespace).list().getItems()
+                .stream()
+                .filter(uiAlreadyDeployed -> ui.getMetadata().getOwnerReferences().containsAll(uiAlreadyDeployed.getMetadata().getOwnerReferences()))
+                .collect(Collectors.toList())
+                .size() > 1) {
             log.warnf("Only one Ui CR is allowed: '%s' is going to be deleted", name);
             uiClient.delete(ui);
             return UpdateControl.noUpdate();
@@ -49,7 +57,7 @@ public class UiController implements ResourceController<Ui> {
         log.infof("Execution createOrUpdateResource for '%s' in namespace '%s'", name, namespace);
 
         Deployment deployment = openShiftClient.apps().deployments().load(getClass().getResourceAsStream("templates/ui-deployment.yaml")).get();
-        applyDefaultMetadata(ui, deployment, RESOURCE_NAME_SUFFIX);
+        applyDefaultMetadata(ui, deployment);
         deployment
                 .getSpec()
                 .getSelector()
@@ -75,10 +83,24 @@ public class UiController implements ResourceController<Ui> {
                 .getContainers()
                 .get(0)
                 .setName(name);
-        // all env must be set
+        List<EnvVar> envs =deployment
+                .getSpec()
+                .getTemplate()
+                .getSpec()
+                .getContainers()
+                .get(0)
+                .getEnv();
+        envs.get(0).setValue(ui.getSpec().getControlsApiUrl());
+        envs.get(1).setValue(ui.getSpec().getApplicationInventoryApiUrl());
+        envs.get(2).setValue(ui.getSpec().getPathfinderApiUrl());
+        envs.get(5).setValue(ui.getSpec().getSsoApiUrl());
 
         Service service = openShiftClient.services().load(getClass().getResourceAsStream("templates/ui-service.yaml")).get();
-        applyDefaultMetadata(ui, service, RESOURCE_NAME_SUFFIX);
+        applyDefaultMetadata(ui, service);
+        service
+                .getSpec()
+                .getSelector()
+                .put(LABEL_NAME, name);
 
         log.infof("Creating or updating Deployment '%s' in namespace '%s'", deployment.getMetadata().getName(), namespace);
         openShiftClient.apps().deployments().inNamespace(namespace).createOrReplace(deployment);
@@ -88,7 +110,7 @@ public class UiController implements ResourceController<Ui> {
 
         if (!openShiftClient.isAdaptable(OpenShiftClient.class)) {
             Ingress ingress = openShiftClient.network().v1().ingresses().load(getClass().getResourceAsStream("templates/ui-ingress.yaml")).get();
-            applyDefaultMetadata(ui, ingress, RESOURCE_NAME_SUFFIX);
+            applyDefaultMetadata(ui, ingress);
             ingress
                     .getSpec()
                     .getRules()
@@ -103,7 +125,7 @@ public class UiController implements ResourceController<Ui> {
             openShiftClient.network().v1().ingresses().inNamespace(namespace).createOrReplace(ingress);
         } else {
             final Route route = openShiftClient.routes().load(getClass().getResourceAsStream("templates/ui-route.yaml")).get();
-            applyDefaultMetadata(ui, route, RESOURCE_NAME_SUFFIX);
+            applyDefaultMetadata(ui, route);
             route
                     .getSpec()
                     .getTo()
@@ -120,7 +142,7 @@ public class UiController implements ResourceController<Ui> {
     @Override
     public DeleteControl deleteResource(Ui ui, Context<Ui> context) {
         String namespace = ui.getMetadata().getNamespace();
-        String name = metadataName(ui, RESOURCE_NAME_SUFFIX);
+        String name = metadataName(ui);
         log.infof("Execution deleteResource for '%s' in namespace '%s'", name, namespace);
         return DeleteControl.DEFAULT_DELETE;
     }

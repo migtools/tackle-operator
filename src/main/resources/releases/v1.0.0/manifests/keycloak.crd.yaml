@@ -22,9 +22,13 @@ spec:
                 postgreSQLImage:
                   description: URL for the PostgreSQL image
                   type: string
+                databaseSchema:
+                  description: Name of the databse schema
+                  type: string
               required:
                 - restImage
                 - postgreSQLImage
+                - databaseSchema
   scope: Namespaced
   names:
     plural: keycloaks

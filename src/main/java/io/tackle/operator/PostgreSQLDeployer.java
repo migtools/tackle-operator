@@ -32,7 +32,6 @@ public class PostgreSQLDeployer {
 
     public <T> void createOrUpdateResource(KubernetesClient kubernetesClient, CustomResource<MicroserviceSpec, T> parentCustomResource) {
         final String namespace = parentCustomResource.getMetadata().getNamespace();
-        final String parentName = parentCustomResource.getMetadata().getName();
         final String name = metadataName(parentCustomResource, RESOURCE_NAME_SUFFIX);
         Secret secret = kubernetesClient.secrets().load(getClass().getResourceAsStream("templates/postgresql-secret.yaml")).get();
         applyDefaultMetadata(parentCustomResource, secret, RESOURCE_NAME_SUFFIX);
@@ -40,7 +39,7 @@ public class PostgreSQLDeployer {
         String password = RandomStringUtils.randomAlphanumeric(16);
         secret
                 .getData()
-                .put(DATABASE_NAME, Base64.getEncoder().encodeToString(String.format("%s_db", parentName.replace("-", "_")).getBytes()));
+                .put(DATABASE_NAME, Base64.getEncoder().encodeToString(parentCustomResource.getSpec().getDatabaseSchema().getBytes()));
         secret
                 .getData()
                 .put(DATABASE_PASSWORD, Base64.getEncoder().encodeToString(password.getBytes()));

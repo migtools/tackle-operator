@@ -38,6 +38,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+            - name: QUARKUS_DATASOURCE_JDBC_URL
+              value: ""
             - name: QUARKUS_DATASOURCE_USERNAME
               valueFrom:
                 secretKeyRef:
@@ -48,6 +50,8 @@ spec:
                 secretKeyRef:
                   name: ""
                   key: database-password
+            - name: QUARKUS_OIDC_AUTH_SERVER_URL
+              value: ""
           image: ""
           imagePullPolicy: Always
           livenessProbe:

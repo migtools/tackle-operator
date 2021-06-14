@@ -20,6 +20,7 @@ import org.jboss.logging.Logger;
 import javax.inject.Inject;
 import java.util.Base64;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static io.tackle.operator.Utils.LABEL_NAME;
 import static io.tackle.operator.Utils.addDockerhubImagePullSecret;
@@ -47,11 +48,16 @@ public class KeycloakController implements ResourceController<Keycloak> {
 
         MixedOperation<Keycloak, KubernetesResourceList<Keycloak>, Resource<Keycloak>> keycloakClient = kubernetesClient.customResources(Keycloak.class);
         MixedOperation<Tackle, KubernetesResourceList<Tackle>, Resource<Tackle>> tackleClient = kubernetesClient.customResources(Tackle.class);
-        if (tackleClient.inNamespace(namespace).list().getItems().isEmpty()) {
+        if (tackleClient.inNamespace(namespace).list().getItems().isEmpty() ||
+                keycloak.getMetadata().getOwnerReferences().isEmpty()) {
             log.errorf("Standalone '%s' Keycloak CR isn't allowed: create a Tackle CR to instantiate Tackle application", name);
             keycloakClient.delete(keycloak);
             return UpdateControl.noUpdate();
-        } else if (keycloakClient.inNamespace(namespace).list().getItems().size() > 1) {
+        } else if (keycloakClient.inNamespace(namespace).list().getItems()
+                .stream()
+                .filter(keycloakAlreadyDeployed -> keycloak.getMetadata().getOwnerReferences().containsAll(keycloakAlreadyDeployed.getMetadata().getOwnerReferences()))
+                .collect(Collectors.toList())
+                .size() > 1) {
             log.warnf("Only one Keycloak CR is allowed: '%s' is going to be deleted", name);
             keycloakClient.delete(keycloak);
             return UpdateControl.noUpdate();
@@ -107,6 +113,8 @@ public class KeycloakController implements ResourceController<Keycloak> {
         envs.get(0).getValueFrom().getSecretKeyRef().setName(name);
         envs.get(1).getValueFrom().getSecretKeyRef().setName(name);
         // DB credentials from secret
+        envs.get(5).setValue(metadataName(keycloak, PostgreSQLDeployer.RESOURCE_NAME_SUFFIX));
+        envs.get(6).getValueFrom().getSecretKeyRef().setName(metadataName(keycloak, PostgreSQLDeployer.RESOURCE_NAME_SUFFIX));
         envs.get(7).getValueFrom().getSecretKeyRef().setName(metadataName(keycloak, PostgreSQLDeployer.RESOURCE_NAME_SUFFIX));
         envs.get(8).getValueFrom().getSecretKeyRef().setName(metadataName(keycloak, PostgreSQLDeployer.RESOURCE_NAME_SUFFIX));
 

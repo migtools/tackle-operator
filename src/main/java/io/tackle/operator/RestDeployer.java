@@ -47,8 +47,10 @@ public class RestDeployer {
                 .get(0)
                 .getEnv();
         // env are positional in the provided yaml deployment
-        envs.get(1).getValueFrom().getSecretKeyRef().setName(metadataName(parentCustomResource, PostgreSQLDeployer.RESOURCE_NAME_SUFFIX));
+        envs.get(1).setValue(String.format("jdbc:postgresql://%s:5432/%s", metadataName(parentCustomResource, PostgreSQLDeployer.RESOURCE_NAME_SUFFIX), parentCustomResource.getSpec().getDatabaseSchema()));
         envs.get(2).getValueFrom().getSecretKeyRef().setName(metadataName(parentCustomResource, PostgreSQLDeployer.RESOURCE_NAME_SUFFIX));
+        envs.get(3).getValueFrom().getSecretKeyRef().setName(metadataName(parentCustomResource, PostgreSQLDeployer.RESOURCE_NAME_SUFFIX));
+        envs.get(4).setValue(parentCustomResource.getSpec().getOidcAuthServerUrl());
         deployment
                 .getSpec()
                 .getTemplate()
@@ -71,7 +73,7 @@ public class RestDeployer {
                 .get(0)
                 .getLivenessProbe()
                 .getHttpGet()
-                .setPath(String.format("/%s/q/health/live", parentName));
+                .setPath(String.format("/%s/q/health/live", parentCustomResource.getSpec().getContextRoot()));
         deployment
                 .getSpec()
                 .getTemplate()
@@ -80,7 +82,7 @@ public class RestDeployer {
                 .get(0)
                 .getReadinessProbe()
                 .getHttpGet()
-                .setPath(String.format("/%s/q/health/ready", parentName));
+                .setPath(String.format("/%s/q/health/ready", parentCustomResource.getSpec().getContextRoot()));
 
         Service service = kubernetesClient.services().load(getClass().getResourceAsStream("templates/rest-service.yaml")).get();
         applyDefaultMetadata(parentCustomResource, service, RESOURCE_NAME_SUFFIX);

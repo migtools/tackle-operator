@@ -5,3 +5,4 @@ metadata:
 spec:
   restImage: quay.io/keycloak/keycloak:12.0.4
   postgreSQLImage: postgres:10.6
+  databaseSchema: keycloak_db

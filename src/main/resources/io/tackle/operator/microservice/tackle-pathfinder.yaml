@@ -5,3 +5,5 @@ metadata:
 spec:
   restImage: quay.io/konveyor/tackle-pathfinder:0.0.1-SNAPSHOT-native
   postgreSQLImage: postgres:10.6
+  databaseSchema: pathfinder_db
+  contextRoot: pathfinder

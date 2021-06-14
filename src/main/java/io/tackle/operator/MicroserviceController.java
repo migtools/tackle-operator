@@ -37,7 +37,8 @@ public class MicroserviceController implements ResourceController<Microservice> 
         final String restImage = microservice.getSpec().getRestImage();
         ListOptions listOptions = new ListOptionsBuilder().withFieldSelector("metadata.name!=" + name).build();
         MixedOperation<Tackle, KubernetesResourceList<Tackle>, Resource<Tackle>> tackleClient = kubernetesClient.customResources(Tackle.class);
-        if (tackleClient.inNamespace(namespace).list().getItems().isEmpty()) {
+        if (tackleClient.inNamespace(namespace).list().getItems().isEmpty() ||
+                microservice.getMetadata().getOwnerReferences().isEmpty()) {
             log.errorf("Standalone '%s' Microservice CR isn't allowed: create a Tackle CR to instantiate Tackle application", name);
             microserviceClient.delete(microservice);
             return UpdateControl.noUpdate();
@@ -46,7 +47,8 @@ public class MicroserviceController implements ResourceController<Microservice> 
                 .list(listOptions)
                 .getItems()
                 .stream()
-                .anyMatch(microserviceAlreadyDeployed -> restImage.equals(microserviceAlreadyDeployed.getSpec().getRestImage()))) {
+                .anyMatch(microserviceAlreadyDeployed -> restImage.equals(microserviceAlreadyDeployed.getSpec().getRestImage()) &&
+                        microservice.getMetadata().getOwnerReferences().containsAll(microserviceAlreadyDeployed.getMetadata().getOwnerReferences()))) {
             log.warnf("Only one Microservice CR running %s image is allowed: '%s' is going to be deleted", restImage, name);
             microserviceClient.delete(microservice);
             return UpdateControl.noUpdate();
