@@ -1,5 +1,7 @@
 package io.tackle.operator;
 
+import io.fabric8.kubernetes.api.model.Condition;
+import io.fabric8.kubernetes.api.model.ConditionBuilder;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.KubernetesResourceList;
@@ -18,10 +20,15 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.jboss.logging.Logger;
 
 import javax.inject.Inject;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static io.tackle.operator.Utils.CONDITION_STATUS_TRUE;
+import static io.tackle.operator.Utils.CONDITION_TYPE_READY;
 import static io.tackle.operator.Utils.LABEL_NAME;
 import static io.tackle.operator.Utils.addDockerhubImagePullSecret;
 import static io.tackle.operator.Utils.applyDefaultMetadata;
@@ -45,6 +52,16 @@ public class KeycloakController implements ResourceController<Keycloak> {
         String namespace = keycloak.getMetadata().getNamespace();
         // Keycloak is unique, no need for suffixes in the name
         String name = metadataName(keycloak);
+
+        BasicStatus status = keycloak.getStatus();
+        if (status != null && status.getConditions()
+                .stream()
+                .anyMatch(condition ->
+                        CONDITION_TYPE_READY.equals(condition.getType()) &&
+                        CONDITION_STATUS_TRUE.equals(condition.getStatus()))) {
+            log.infof("Keycloak '%s' CR already created, nothing to do.", keycloak.getMetadata().getName());
+            return UpdateControl.noUpdate();
+        }
 
         MixedOperation<Keycloak, KubernetesResourceList<Keycloak>, Resource<Keycloak>> keycloakClient = kubernetesClient.customResources(Keycloak.class);
         MixedOperation<Tackle, KubernetesResourceList<Tackle>, Resource<Tackle>> tackleClient = kubernetesClient.customResources(Tackle.class);
@@ -153,9 +170,19 @@ public class KeycloakController implements ResourceController<Keycloak> {
         log.infof("Creating or updating Service '%s' in namespace '%s'", service.getMetadata().getName(), namespace);
         kubernetesClient.services().inNamespace(namespace).createOrReplace(service);
 
-        BasicStatus status = new BasicStatus();
-        keycloak.setStatus(status);
-        return UpdateControl.updateCustomResource(keycloak);
+        if (status == null) {
+            status = new BasicStatus();
+            keycloak.setStatus(status);
+        }
+        Condition condition = new ConditionBuilder()
+                .withLastTransitionTime(ZonedDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_INSTANT))
+                .withType(CONDITION_TYPE_READY)
+                .withStatus(CONDITION_STATUS_TRUE)
+                .withReason("-")
+                .withMessage("-")
+                .build();
+        status.addCondition(condition);
+        return UpdateControl.updateStatusSubResource(keycloak);
     }
 
     @Override

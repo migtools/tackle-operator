@@ -83,10 +83,14 @@ rules:
   - tackle.io
   resources:
   - keycloaks
+  - keycloaks/status
   - uis
+  - uis/status
   - tackles
   - tackles/finalizers
+  - tackles/status
   - microservices
+  - microservices/status
   verbs:
   - '*'
 - apiGroups:

@@ -1,5 +1,7 @@
 package io.tackle.operator;
 
+import io.fabric8.kubernetes.api.model.Condition;
+import io.fabric8.kubernetes.api.model.ConditionBuilder;
 import io.fabric8.kubernetes.api.model.KubernetesResourceList;
 import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.api.model.OwnerReferenceBuilder;
@@ -16,8 +18,14 @@ import org.apache.commons.lang3.StringUtils;
 import org.jboss.logging.Logger;
 
 import javax.inject.Inject;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.Map;
+
+import static io.tackle.operator.Utils.CONDITION_STATUS_TRUE;
+import static io.tackle.operator.Utils.CONDITION_TYPE_READY;
 
 @Controller(namespaces = Controller.WATCH_CURRENT_NAMESPACE)
 public class TackleController implements ResourceController<Tackle> {
@@ -38,6 +46,16 @@ public class TackleController implements ResourceController<Tackle> {
     public UpdateControl<Tackle> createOrUpdateResource(Tackle tackle, Context<Tackle> context) {
         final String namespace = tackle.getMetadata().getNamespace();
         final String name = tackle.getMetadata().getName();
+
+        BasicStatus status = tackle.getStatus();
+        if (status != null && status.getConditions()
+                .stream()
+                .anyMatch(condition ->
+                        CONDITION_TYPE_READY.equals(condition.getType()) &&
+                        CONDITION_STATUS_TRUE.equals(condition.getStatus()))) {
+                log.infof("Tackle '%s' CR already created, nothing to do.", tackle.getMetadata().getName());
+                return UpdateControl.noUpdate();
+        }
 
         final OwnerReference tackleOwnerReference = new OwnerReferenceBuilder()
                 .withApiVersion(tackle.getApiVersion())
@@ -101,9 +119,19 @@ public class TackleController implements ResourceController<Tackle> {
         ui.getMetadata().setName(String.format("%s-%s", name, ui.getMetadata().getName()));
         uiClient.inNamespace(namespace).createOrReplace(ui);
 
-        BasicStatus status = new BasicStatus();
-        tackle.setStatus(status);
-        return UpdateControl.updateCustomResource(tackle);
+        if (status == null) {
+            status = new BasicStatus();
+            tackle.setStatus(status);
+        }
+        Condition condition = new ConditionBuilder()
+                .withLastTransitionTime(ZonedDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_INSTANT))
+                .withType(CONDITION_TYPE_READY)
+                .withStatus(CONDITION_STATUS_TRUE)
+                .withReason("-")
+                .withMessage("-")
+                .build();
+        status.addCondition(condition);
+        return UpdateControl.updateStatusSubResource(tackle);
     }
 
 }

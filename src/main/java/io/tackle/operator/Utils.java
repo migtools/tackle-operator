@@ -17,6 +17,8 @@ public class Utils {
     public static final String LABEL_NAME = "app.kubernetes.io/name"; 
     public static final String LABEL_INSTANCE = "app.kubernetes.io/instance";
     public static final String DOCKERHUB_IMAGE_PULLER_SECRET_NAME = "docker-hub-image-puller";
+    public static final String CONDITION_STATUS_TRUE = "True";
+    public static final String CONDITION_TYPE_READY = "Ready";
 
     public static <P extends CustomResource, C extends HasMetadata & Namespaced> void applyDefaultMetadata(P parent, C child) {
         applyDefaultMetadata(parent, child, null);

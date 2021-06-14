@@ -1,5 +1,7 @@
 package io.tackle.operator;
 
+import io.fabric8.kubernetes.api.model.Condition;
+import io.fabric8.kubernetes.api.model.ConditionBuilder;
 import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.KubernetesResourceList;
 import io.fabric8.kubernetes.api.model.Service;
@@ -18,9 +20,14 @@ import org.jboss.logging.Logger;
 
 import javax.inject.Inject;
 
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static io.tackle.operator.Utils.CONDITION_STATUS_TRUE;
+import static io.tackle.operator.Utils.CONDITION_TYPE_READY;
 import static io.tackle.operator.Utils.LABEL_NAME;
 import static io.tackle.operator.Utils.applyDefaultMetadata;
 import static io.tackle.operator.Utils.metadataName;
@@ -36,6 +43,16 @@ public class UiController implements ResourceController<Ui> {
     public UpdateControl<Ui> createOrUpdateResource(Ui ui, Context<Ui> context) {
         String namespace = ui.getMetadata().getNamespace();
         String name = metadataName(ui);
+
+        BasicStatus status = ui.getStatus();
+        if (status != null && status.getConditions()
+                .stream()
+                .anyMatch(condition ->
+                        CONDITION_TYPE_READY.equals(condition.getType()) &&
+                        CONDITION_STATUS_TRUE.equals(condition.getStatus()))) {
+            log.infof("Ui '%s' CR already created, nothing to do.", ui.getMetadata().getName());
+            return UpdateControl.noUpdate();
+        }
 
         MixedOperation<Ui, KubernetesResourceList<Ui>, Resource<Ui>> uiClient = openShiftClient.customResources(Ui.class);
         MixedOperation<Tackle, KubernetesResourceList<Tackle>, Resource<Tackle>> tackleClient = openShiftClient.customResources(Tackle.class);
@@ -134,9 +151,19 @@ public class UiController implements ResourceController<Ui> {
             openShiftClient.routes().inNamespace(namespace).createOrReplace(route);
         }
 
-        BasicStatus status = new BasicStatus();
-        ui.setStatus(status);
-        return UpdateControl.updateCustomResource(ui);
+        if (status == null) {
+            status = new BasicStatus();
+            ui.setStatus(status);
+        }
+        Condition condition = new ConditionBuilder()
+                .withLastTransitionTime(ZonedDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_INSTANT))
+                .withType(CONDITION_TYPE_READY)
+                .withStatus(CONDITION_STATUS_TRUE)
+                .withReason("-")
+                .withMessage("-")
+                .build();
+        status.addCondition(condition);
+        return UpdateControl.updateStatusSubResource(ui);
     }
 
     @Override

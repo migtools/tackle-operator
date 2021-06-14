@@ -20,7 +20,7 @@ metadata:
     certified: "false"
     containerImage: quay.io/mrizzi/tackle-operator:1.0.0-SNAPSHOT-native
     imagePullPolicy: Always
-    createdAt: 2021-05-31
+    createdAt: 2021-06-14
     repository: https://github.com/konveyor/tackle-operator
     support: https://github.com/konveyor/tackle-operator/issues
     description: Tackle operator
@@ -95,10 +95,14 @@ spec:
               - tackle.io
             resources:
               - keycloaks
+              - keycloaks/status
               - uis
+              - uis/status
               - tackles
               - tackles/finalizers
+              - tackles/status
               - microservices
+              - microservices/status
             verbs:
               - '*'
           - apiGroups:

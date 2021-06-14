@@ -1,25 +1,31 @@
 package io.tackle.operator;
 
+import io.fabric8.kubernetes.api.model.Condition;
 import io.quarkus.runtime.annotations.RegisterForReflection;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
 @RegisterForReflection
 public class BasicStatus {
-    
-    private String status;
-    private Integer readyReplicas = 0;
 
-    public String getStatus() {
-        return status;
-    }
+    private List<Condition> conditions = new ArrayList<>();
 
-    public Integer getReadyReplicas() {
-        return readyReplicas;
+    public List<Condition> getConditions() {
+        return conditions;
     }
 
-    public void setStatus(String status) {
-        this.status = status;
+    public void setConditions(List<Condition> conditions) {
+        this.conditions = conditions;
     }
-    public void setReadyReplicas(Integer readyReplicas) {
-        this.readyReplicas = readyReplicas;
+
+    public void addCondition(Condition condition) {
+        this.conditions.add(condition);
     }
+
+    public void addConditions(Collection<Condition> conditions) {
+        this.conditions.addAll(conditions);
+    }
+
 }

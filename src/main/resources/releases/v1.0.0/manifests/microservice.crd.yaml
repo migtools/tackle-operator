@@ -35,6 +35,31 @@ spec:
                 - restImage
                 - postgreSQLImage
                 - databaseSchema
+            status:
+              type: object
+              properties:
+                conditions:
+                  items:
+                    properties:
+                      lastTransitionTime:
+                        type: string
+                      message:
+                        type: string
+                      observedGeneration:
+                        type: integer
+                      reason:
+                        type: string
+                      status:
+                        type: string
+                      type:
+                        type: string
+                    required:
+                      - status
+                      - type
+                    type: object
+                  type: array
+      subresources:
+        status: { }
   scope: Namespaced
   names:
     plural: microservices
