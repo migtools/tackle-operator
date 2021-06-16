@@ -8,7 +8,7 @@ import java.util.Collection;
 import java.util.List;
 
 @RegisterForReflection
-public class BasicStatus {
+public class TackleStatus {
 
     private List<Condition> conditions = new ArrayList<>();
 

@@ -1,13 +1,14 @@
-package io.tackle.operator;
+package io.tackle.operator.deployers;
 
 import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
-import io.fabric8.kubernetes.client.CustomResource;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.tackle.operator.Tackle;
 import org.jboss.logging.Logger;
 
 import javax.enterprise.context.ApplicationScoped;
+import javax.inject.Inject;
 import java.util.List;
 
 import static io.tackle.operator.Utils.LABEL_NAME;
@@ -19,15 +20,22 @@ public class RestDeployer {
 
     private static final String RESOURCE_NAME_SUFFIX = "rest"; 
     private final Logger log = Logger.getLogger(getClass());
+    @Inject
+    KubernetesClient kubernetesClient;
 
-    public <T> void createOrUpdateResource(KubernetesClient kubernetesClient, CustomResource<MicroserviceSpec, T> parentCustomResource) {
-        final String namespace = parentCustomResource.getMetadata().getNamespace();
-        final String parentName = parentCustomResource.getMetadata().getName();
-        final String name = metadataName(parentCustomResource, RESOURCE_NAME_SUFFIX);
+    public void createOrUpdateResource(Tackle tackle,
+                                       String creatorName,
+                                       String image,
+                                       String oidcAuthServerUrl,
+                                       String contextRoot,
+                                       String postgreSQLName,
+                                       String postgreSQLSchema) {
+        final String namespace = tackle.getMetadata().getNamespace();
+        final String name = metadataName(creatorName, RESOURCE_NAME_SUFFIX);
         log.infof("Execution createOrUpdateResource for '%s' in namespace '%s'", name, namespace);
 
         Deployment deployment = kubernetesClient.apps().deployments().load(getClass().getResourceAsStream("templates/rest-deployment.yaml")).get();
-        applyDefaultMetadata(parentCustomResource, deployment, RESOURCE_NAME_SUFFIX);
+        applyDefaultMetadata(tackle, creatorName, deployment, RESOURCE_NAME_SUFFIX);
         deployment
                 .getSpec()
                 .getSelector()
@@ -47,17 +55,17 @@ public class RestDeployer {
                 .get(0)
                 .getEnv();
         // env are positional in the provided yaml deployment
-        envs.get(1).setValue(String.format("jdbc:postgresql://%s:5432/%s", metadataName(parentCustomResource, PostgreSQLDeployer.RESOURCE_NAME_SUFFIX), parentCustomResource.getSpec().getDatabaseSchema()));
-        envs.get(2).getValueFrom().getSecretKeyRef().setName(metadataName(parentCustomResource, PostgreSQLDeployer.RESOURCE_NAME_SUFFIX));
-        envs.get(3).getValueFrom().getSecretKeyRef().setName(metadataName(parentCustomResource, PostgreSQLDeployer.RESOURCE_NAME_SUFFIX));
-        envs.get(4).setValue(parentCustomResource.getSpec().getOidcAuthServerUrl());
+        envs.get(1).setValue(String.format("jdbc:postgresql://%s:5432/%s", postgreSQLName, postgreSQLSchema));
+        envs.get(2).getValueFrom().getSecretKeyRef().setName(postgreSQLName);
+        envs.get(3).getValueFrom().getSecretKeyRef().setName(postgreSQLName);
+        envs.get(4).setValue(oidcAuthServerUrl);
         deployment
                 .getSpec()
                 .getTemplate()
                 .getSpec()
                 .getContainers()
                 .get(0)
-                .setImage(parentCustomResource.getSpec().getRestImage());
+                .setImage(image);
         deployment
                 .getSpec()
                 .getTemplate()
@@ -73,7 +81,7 @@ public class RestDeployer {
                 .get(0)
                 .getLivenessProbe()
                 .getHttpGet()
-                .setPath(String.format("/%s/q/health/live", parentCustomResource.getSpec().getContextRoot()));
+                .setPath(String.format("/%s/q/health/live", contextRoot));
         deployment
                 .getSpec()
                 .getTemplate()
@@ -82,10 +90,10 @@ public class RestDeployer {
                 .get(0)
                 .getReadinessProbe()
                 .getHttpGet()
-                .setPath(String.format("/%s/q/health/ready", parentCustomResource.getSpec().getContextRoot()));
+                .setPath(String.format("/%s/q/health/ready", contextRoot));
 
         Service service = kubernetesClient.services().load(getClass().getResourceAsStream("templates/rest-service.yaml")).get();
-        applyDefaultMetadata(parentCustomResource, service, RESOURCE_NAME_SUFFIX);
+        applyDefaultMetadata(tackle, creatorName, service, RESOURCE_NAME_SUFFIX);
         service
                 .getSpec()
                 .getSelector()

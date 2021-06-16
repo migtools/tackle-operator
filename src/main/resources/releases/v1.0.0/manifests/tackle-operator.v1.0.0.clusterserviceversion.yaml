@@ -48,27 +48,6 @@ spec:
         kind: Tackle
         description: Create a Tackle application.
         displayName: Tackle by Konveyor
-      - name: keycloaks.tackle.io
-        version: v1alpha1
-        kind: Keycloak
-        description: >-
-          Internal only resource, please create a Tackle resource to instantiate Tackle application.
-          This is just a subset of the resources required to instantiate Tackle, and only to be used by by the parent Tackle CR.
-        displayName: (Internal-only) Keycloak
-      - name: uis.tackle.io
-        version: v1alpha1
-        kind: Ui
-        description: >-
-          Internal only resource, please create a Tackle resource to instantiate Tackle application.
-          This is just a subset of the resources required to instantiate Tackle, and only to be used by by the parent Tackle CR.
-        displayName: (Internal-only) Ui
-      - name: microservices.tackle.io
-        version: v1alpha1
-        kind: Microservice
-        description: >-
-          Internal only resource, please create a Tackle resource to instantiate Tackle application.
-          This is just a subset of the resources required to instantiate Tackle, and only to be used by by the parent Tackle CR.
-        displayName: (Internal-only) Microservice
   displayName: Tackle Operator
   provider:
     name: Konveyor.io
@@ -94,15 +73,9 @@ spec:
           - apiGroups:
               - tackle.io
             resources:
-              - keycloaks
-              - keycloaks/status
-              - uis
-              - uis/status
               - tackles
               - tackles/finalizers
               - tackles/status
-              - microservices
-              - microservices/status
             verbs:
               - '*'
           - apiGroups:

@@ -9,4 +9,4 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
 @RegisterForReflection
 @Group("tackle.io")
 @Version("v1alpha1")
-public class Tackle extends CustomResource<TackleSpec, BasicStatus> implements Namespaced {}
+public class Tackle extends CustomResource<TackleSpec, TackleStatus> implements Namespaced {}

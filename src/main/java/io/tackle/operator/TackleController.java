@@ -2,19 +2,20 @@ package io.tackle.operator;
 
 import io.fabric8.kubernetes.api.model.Condition;
 import io.fabric8.kubernetes.api.model.ConditionBuilder;
-import io.fabric8.kubernetes.api.model.KubernetesResourceList;
 import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.api.model.OwnerReferenceBuilder;
 import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.fabric8.kubernetes.client.dsl.MixedOperation;
-import io.fabric8.kubernetes.client.dsl.Resource;
 import io.javaoperatorsdk.operator.api.Context;
 import io.javaoperatorsdk.operator.api.Controller;
 import io.javaoperatorsdk.operator.api.DeleteControl;
 import io.javaoperatorsdk.operator.api.ResourceController;
 import io.javaoperatorsdk.operator.api.UpdateControl;
+import io.tackle.operator.deployers.KeycloakDeployer;
+import io.tackle.operator.deployers.MicroserviceDeployer;
+import io.tackle.operator.deployers.UiDeployer;
 import org.apache.commons.lang3.StringUtils;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 import javax.inject.Inject;
@@ -33,6 +34,31 @@ public class TackleController implements ResourceController<Tackle> {
     private final Logger log = Logger.getLogger(getClass());
     @Inject
     KubernetesClient kubernetesClient;
+    @Inject
+    UiDeployer uiDeployer;
+    @Inject
+    KeycloakDeployer keycloakDeployer;
+    @Inject
+    MicroserviceDeployer microserviceDeployer;
+
+    @ConfigProperty(name = "io.tackle.operator.keycloak.image")
+    String keycloakImage;
+    @ConfigProperty(name = "io.tackle.operator.keycloak.db.image")
+    String keycloakDbImage;
+    @ConfigProperty(name = "io.tackle.operator.controls.image")
+    String controlsImage;
+    @ConfigProperty(name = "io.tackle.operator.controls.db.image")
+    String controlsDbImage;
+    @ConfigProperty(name = "io.tackle.operator.pathfinder.image")
+    String pathfinderImage;
+    @ConfigProperty(name = "io.tackle.operator.pathfinder.db.image")
+    String pathfinderDbImage;
+    @ConfigProperty(name = "io.tackle.operator.application-inventory.image")
+    String applicationInventoryImage;
+    @ConfigProperty(name = "io.tackle.operator.application-inventory.db.image")
+    String applicationInventoryDbImage;
+    @ConfigProperty(name = "io.tackle.operator.ui.image")
+    String uiImage;
 
     @Override
     public DeleteControl deleteResource(Tackle tackle, Context<Tackle> context) {
@@ -47,7 +73,7 @@ public class TackleController implements ResourceController<Tackle> {
         final String namespace = tackle.getMetadata().getNamespace();
         final String name = tackle.getMetadata().getName();
 
-        BasicStatus status = tackle.getStatus();
+        TackleStatus status = tackle.getStatus();
         if (status != null && status.getConditions()
                 .stream()
                 .anyMatch(condition ->
@@ -69,7 +95,7 @@ public class TackleController implements ResourceController<Tackle> {
         if (tackleSpec != null) {
             final String dockerhubConfigJson = tackleSpec.getDockerhubConfigJson();
             if (!StringUtils.isEmpty(dockerhubConfigJson)) {
-                Secret dockerhubSecret = kubernetesClient.secrets().load(getClass().getResourceAsStream("templates/docker-hub-image-puller.yaml")).get();
+                Secret dockerhubSecret = kubernetesClient.secrets().load(getClass().getResourceAsStream("deployers/templates/docker-hub-image-puller.yaml")).get();
                 dockerhubSecret.getMetadata().setNamespace(namespace);
                 Map<String, String> data = Collections.singletonMap(".dockerconfigjson", dockerhubConfigJson);
                 dockerhubSecret.setData(data);
@@ -81,46 +107,33 @@ public class TackleController implements ResourceController<Tackle> {
         else log.info("Tackle resource without spec: default configuration will be applied");
 
         // deploy Keycloak instance
-        MixedOperation<Keycloak, KubernetesResourceList<Keycloak>, Resource<Keycloak>> keycloakClient = kubernetesClient.customResources(Keycloak.class);
-        Keycloak keycloak = keycloakClient.load(TackleController.class.getResourceAsStream("keycloak/keycloak.yaml")).get();
-        keycloak.getMetadata().getOwnerReferences().add(tackleOwnerReference);
-        keycloak.getMetadata().setName(String.format("%s-%s", name, keycloak.getMetadata().getName()));
-        keycloakClient.inNamespace(namespace).createOrReplace(keycloak);
+        log.infof("Deploying Keycloak for '%s' in namespace '%s'", name, namespace);
+        final String keycloakName = keycloakDeployer.createOrUpdateResource(tackle, keycloakImage, keycloakDbImage);
+        final String tackleRealmUrl = String.format("http://%s:8080/auth/realms/tackle", keycloakName);
 
         // deploy microservices
-        MixedOperation<Microservice, KubernetesResourceList<Microservice>, Resource<Microservice>> microserviceClient = kubernetesClient.customResources(Microservice.class);
+        log.infof("Deploying Application Inventory for '%s' in namespace '%s'", name, namespace);
+        final String applicationInventoryName = microserviceDeployer.createOrUpdateResource(tackle, "application-inventory", applicationInventoryImage, applicationInventoryDbImage,
+                tackleRealmUrl, "application_inventory_db", "application-inventory");
 
-        Microservice applicationInventory = microserviceClient.load(TackleController.class.getResourceAsStream("microservice/tackle-application-inventory.yaml")).get();
-        applicationInventory.getMetadata().getOwnerReferences().add(tackleOwnerReference);
-        applicationInventory.getSpec().setOidcAuthServerUrl(String.format("http://%s:8080/auth/realms/tackle", keycloak.getMetadata().getName()));
-        applicationInventory.getMetadata().setName(String.format("%s-%s", name, applicationInventory.getMetadata().getName()));
-        microserviceClient.inNamespace(namespace).createOrReplace(applicationInventory);
+        log.infof("Deploying Controls for '%s' in namespace '%s'", name, namespace);
+        final String controlsName = microserviceDeployer.createOrUpdateResource(tackle, "controls", controlsImage, controlsDbImage,
+                tackleRealmUrl, "controls_db", "controls");
 
-        Microservice controls = microserviceClient.load(TackleController.class.getResourceAsStream("microservice/tackle-controls.yaml")).get();
-        controls.getMetadata().getOwnerReferences().add(tackleOwnerReference);
-        controls.getSpec().setOidcAuthServerUrl(String.format("http://%s:8080/auth/realms/tackle", keycloak.getMetadata().getName()));
-        controls.getMetadata().setName(String.format("%s-%s", name, controls.getMetadata().getName()));
-        microserviceClient.inNamespace(namespace).createOrReplace(controls);
-
-        Microservice pathfinder = microserviceClient.load(TackleController.class.getResourceAsStream("microservice/tackle-pathfinder.yaml")).get();
-        pathfinder.getMetadata().getOwnerReferences().add(tackleOwnerReference);
-        pathfinder.getSpec().setOidcAuthServerUrl(String.format("http://%s:8080/auth/realms/tackle", keycloak.getMetadata().getName()));
-        pathfinder.getMetadata().setName(String.format("%s-%s", name, pathfinder.getMetadata().getName()));
-        microserviceClient.inNamespace(namespace).createOrReplace(pathfinder);
+        log.infof("Deploying Pathfinder for '%s' in namespace '%s'", name, namespace);
+        final String pathfinderName = microserviceDeployer.createOrUpdateResource(tackle, "pathfinder", pathfinderImage, pathfinderDbImage,
+                tackleRealmUrl, "pathfinder_db", "pathfinder");
 
         // deploy the UI instance
-        MixedOperation<Ui, KubernetesResourceList<Ui>, Resource<Ui>> uiClient = kubernetesClient.customResources(Ui.class);
-        Ui ui = uiClient.load(TackleController.class.getResourceAsStream("ui/tackle-ui.yaml")).get();
-        ui.getMetadata().getOwnerReferences().add(tackleOwnerReference);
-        ui.getSpec().setControlsApiUrl(String.format("http://%s-rest:8080", controls.getMetadata().getName()));
-        ui.getSpec().setApplicationInventoryApiUrl(String.format("http://%s-rest:8080", applicationInventory.getMetadata().getName()));
-        ui.getSpec().setPathfinderApiUrl(String.format("http://%s-rest:8080", pathfinder.getMetadata().getName()));
-        ui.getSpec().setSsoApiUrl(String.format("http://%s:8080", keycloak.getMetadata().getName()));
-        ui.getMetadata().setName(String.format("%s-%s", name, ui.getMetadata().getName()));
-        uiClient.inNamespace(namespace).createOrReplace(ui);
+        log.infof("Deploying UI for '%s' in namespace '%s'", name, namespace);
+        uiDeployer.createOrUpdateResource(tackle, uiImage,
+                String.format("http://%s-rest:8080", controlsName),
+                String.format("http://%s-rest:8080", applicationInventoryName),
+                String.format("http://%s-rest:8080", pathfinderName),
+                String.format("http://%s:8080", keycloakName));
 
         if (status == null) {
-            status = new BasicStatus();
+            status = new TackleStatus();
             tackle.setStatus(status);
         }
         Condition condition = new ConditionBuilder()
