@@ -143,7 +143,7 @@ public class TackleController implements ResourceController<Tackle> {
                 .withReason("-")
                 .withMessage("-")
                 .build();
-        status.addCondition(condition);
+        status.getConditions().add(condition);
         return UpdateControl.updateStatusSubResource(tackle);
     }
 
