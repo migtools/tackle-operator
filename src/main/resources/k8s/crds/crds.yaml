@@ -40,6 +40,7 @@ spec:
                     required:
                       - status
                       - type
+                      - lastTransitionTime
                     type: object
                   type: array
       subresources:
@@ -104,6 +105,7 @@ spec:
                     required:
                       - status
                       - type
+                      - lastTransitionTime
                     type: object
                   type: array
       subresources:
@@ -176,6 +178,7 @@ spec:
                     required:
                       - status
                       - type
+                      - lastTransitionTime
                     type: object
                   type: array
       subresources:
@@ -246,6 +249,7 @@ spec:
                     required:
                       - status
                       - type
+                      - lastTransitionTime
                     type: object
                   type: array
       subresources:
