@@ -26,7 +26,7 @@ spec:
                   description: URL for OIDC server
                   type: string
                 databaseSchema:
-                  description: Name of the databse schema
+                  description: Name of the database schema
                   type: string
                 contextRoot:
                   description: Name of the REST root path

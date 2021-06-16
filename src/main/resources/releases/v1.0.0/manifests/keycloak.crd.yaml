@@ -23,7 +23,7 @@ spec:
                   description: URL for the PostgreSQL image
                   type: string
                 databaseSchema:
-                  description: Name of the databse schema
+                  description: Name of the database schema
                   type: string
               required:
                 - restImage
