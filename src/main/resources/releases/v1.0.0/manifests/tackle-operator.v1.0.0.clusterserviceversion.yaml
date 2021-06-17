@@ -18,7 +18,7 @@ metadata:
     capabilities: Basic Install
     categories: Modernization & Migration
     certified: "false"
-    containerImage: quay.io/mrizzi/tackle-operator:1.0.0-SNAPSHOT-native
+    containerImage: quay.io/konveyor/tackle-operator:1.0.0-SNAPSHOT-native
     imagePullPolicy: Always
     createdAt: 2021-06-14
     repository: https://github.com/konveyor/tackle-operator
@@ -113,7 +113,7 @@ spec:
                 serviceAccountName: tackle-operator
                 containers:
                   - name: tackle-operator
-                    image: quay.io/mrizzi/tackle-operator:1.0.0-SNAPSHOT-native
+                    image: quay.io/konveyor/tackle-operator:1.0.0-SNAPSHOT-native
                     imagePullPolicy: Always
                     env:
                       - name: JAVA_OPERATOR_SDK_CHECK_CRD
