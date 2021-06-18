@@ -11,7 +11,7 @@ metadata:
           "apiVersion": "tackle.io/v1alpha1",
           "kind": "Tackle",
           "metadata": {
-            "name": "tackle-sample"
+            "name": "tackle"
           }
         }
       ]
@@ -23,9 +23,19 @@ metadata:
     createdAt: 2021-06-14
     repository: https://github.com/konveyor/tackle-operator
     support: https://github.com/konveyor/tackle-operator/issues
-    description: Tackle operator
+    description: Tackle contains tools that support the modernization and migration of applications to Kubernetes
 spec:
-  description: This is the Tackle operator.
+  description: >
+    Tackle is a collection of tools that supports large-scale application modernization and migration projects to Kubernetes.  
+    
+    
+    Tackle allows users to maintain their portfolio of applications with a full set of metadata and to assess their suitability for modernization leveraging a questionnaire based approach.
+    
+    
+    Tackle is a project within the [Konveyor community](https://www.konveyor.io/).
+    
+    
+    For more information please refer to [Tackle documentation](https://tackle-docs.konveyor.io/).
   version: 1.0.0
   maintainers:
     - email: tackle-dev@googlegroups.com
@@ -46,11 +56,21 @@ spec:
       - name: tackles.tackle.io
         version: v1alpha1
         kind: Tackle
-        description: Create a Tackle application.
-        displayName: Tackle by Konveyor
+        displayName: Tackle Toolkit
+        description: >-
+          Create an instance of the Tackle toolkit.  
+
+
+          To access the Tackle toolkit from the "Developer" perspective, please go to the "Topology" view and click on the "Open URL" icon on the Tackle UI pod.  
+
+
+          Alternatively from the "Administrator" perspective, please go to Networking->Routes and click on the Location hyperlink.  
+
+
+          In order to connect with default login credentials, please use "tackle" as username and "password" as password.  
   displayName: Tackle Operator
   provider:
-    name: Konveyor.io
+    name: Konveyor
   install:
     spec:
       permissions:
