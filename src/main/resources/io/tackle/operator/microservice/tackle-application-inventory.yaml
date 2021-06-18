@@ -1,7 +1,0 @@
-apiVersion: tackle.io/v1alpha1
-kind: Microservice
-metadata:
-  name: application-inventory
-spec:
-  rest: /io/tackle/operator/rest/application-inventory-rest.yaml
-  postgreSQL: /io/tackle/operator/postgresql/application-inventory-postgresql.yaml

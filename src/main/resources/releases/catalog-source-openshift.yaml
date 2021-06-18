@@ -2,10 +2,14 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
 metadata:
   name: tackle-operator-test-catalog
-  namespace: olm
+  namespace: openshift-marketplace
   labels:
     application: tackle
 spec:
   sourceType: grpc
   image: quay.io/{user}/tackle-operator-test-catalog:v1.0.0
   displayName: Tackle Test Operator Catalog
+  publisher: Konveyor
+  updateStrategy:
+    registryPoll:
+      interval: 1m0s

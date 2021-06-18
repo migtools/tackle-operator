@@ -1,21 +1,32 @@
 package io.tackle.operator;
 
-import io.fabric8.kubernetes.api.model.KubernetesResourceList;
+import io.fabric8.kubernetes.api.model.Condition;
+import io.fabric8.kubernetes.api.model.ConditionBuilder;
+import io.fabric8.kubernetes.api.model.OwnerReference;
+import io.fabric8.kubernetes.api.model.OwnerReferenceBuilder;
 import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.fabric8.kubernetes.client.dsl.MixedOperation;
-import io.fabric8.kubernetes.client.dsl.Resource;
 import io.javaoperatorsdk.operator.api.Context;
 import io.javaoperatorsdk.operator.api.Controller;
 import io.javaoperatorsdk.operator.api.DeleteControl;
 import io.javaoperatorsdk.operator.api.ResourceController;
 import io.javaoperatorsdk.operator.api.UpdateControl;
+import io.tackle.operator.deployers.KeycloakDeployer;
+import io.tackle.operator.deployers.MicroserviceDeployer;
+import io.tackle.operator.deployers.UiDeployer;
 import org.apache.commons.lang3.StringUtils;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 import javax.inject.Inject;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.Map;
+
+import static io.tackle.operator.Utils.CONDITION_STATUS_TRUE;
+import static io.tackle.operator.Utils.CONDITION_TYPE_READY;
 
 @Controller(namespaces = Controller.WATCH_CURRENT_NAMESPACE)
 public class TackleController implements ResourceController<Tackle> {
@@ -23,98 +34,117 @@ public class TackleController implements ResourceController<Tackle> {
     private final Logger log = Logger.getLogger(getClass());
     @Inject
     KubernetesClient kubernetesClient;
+    @Inject
+    UiDeployer uiDeployer;
+    @Inject
+    KeycloakDeployer keycloakDeployer;
+    @Inject
+    MicroserviceDeployer microserviceDeployer;
+
+    @ConfigProperty(name = "io.tackle.operator.keycloak.image")
+    String keycloakImage;
+    @ConfigProperty(name = "io.tackle.operator.keycloak.db.image")
+    String keycloakDbImage;
+    @ConfigProperty(name = "io.tackle.operator.controls.image")
+    String controlsImage;
+    @ConfigProperty(name = "io.tackle.operator.controls.db.image")
+    String controlsDbImage;
+    @ConfigProperty(name = "io.tackle.operator.pathfinder.image")
+    String pathfinderImage;
+    @ConfigProperty(name = "io.tackle.operator.pathfinder.db.image")
+    String pathfinderDbImage;
+    @ConfigProperty(name = "io.tackle.operator.application-inventory.image")
+    String applicationInventoryImage;
+    @ConfigProperty(name = "io.tackle.operator.application-inventory.db.image")
+    String applicationInventoryDbImage;
+    @ConfigProperty(name = "io.tackle.operator.ui.image")
+    String uiImage;
 
     @Override
     public DeleteControl deleteResource(Tackle tackle, Context<Tackle> context) {
-        String namespace = tackle.getMetadata().getNamespace();
-        kubernetesClient.customResources(Microservice.class).inNamespace(namespace).delete(kubernetesClient.customResources(Microservice.class).inNamespace(namespace).list().getItems());
-        kubernetesClient.customResources(PostgreSQL.class).inNamespace(namespace).delete(kubernetesClient.customResources(PostgreSQL.class).inNamespace(namespace).list().getItems());
-        kubernetesClient.customResources(Keycloak.class).inNamespace(namespace).delete(kubernetesClient.customResources(Keycloak.class).inNamespace(namespace).list().getItems());
-        kubernetesClient.customResources(Rest.class).inNamespace(namespace).delete(kubernetesClient.customResources(Rest.class).inNamespace(namespace).list().getItems());
-        kubernetesClient.customResources(Ui.class).inNamespace(namespace).delete(kubernetesClient.customResources(Ui.class).inNamespace(namespace).list().getItems());
-        Resource<Secret> dockerhubSecret = kubernetesClient.secrets().inNamespace(namespace).withName(AbstractController.DOCKERHUB_IMAGE_PULLER_SECRET_NAME);
-        if (dockerhubSecret.get() != null) {
-            dockerhubSecret.delete();
-            log.infof("Deleted Secret '%s' in namespace '%s'", AbstractController.DOCKERHUB_IMAGE_PULLER_SECRET_NAME, namespace);
-        }
+        final String namespace = tackle.getMetadata().getNamespace();
+        final String name = tackle.getMetadata().getName();
+        log.infof("Execution deleteResource for Tackle '%s' in namespace '%s'", name, namespace);
         return DeleteControl.DEFAULT_DELETE;
     }
 
     @Override
     public UpdateControl<Tackle> createOrUpdateResource(Tackle tackle, Context<Tackle> context) {
-        String namespace = tackle.getMetadata().getNamespace();
+        final String namespace = tackle.getMetadata().getNamespace();
+        final String name = tackle.getMetadata().getName();
+
+        TackleStatus status = tackle.getStatus();
+        if (status != null && status.getConditions()
+                .stream()
+                .anyMatch(condition ->
+                        CONDITION_TYPE_READY.equals(condition.getType()) &&
+                        CONDITION_STATUS_TRUE.equals(condition.getStatus()))) {
+                log.infof("Tackle '%s' CR already created, nothing to do.", tackle.getMetadata().getName());
+                return UpdateControl.noUpdate();
+        }
+
+        final OwnerReference tackleOwnerReference = new OwnerReferenceBuilder()
+                .withApiVersion(tackle.getApiVersion())
+                .withKind(tackle.getKind())
+                .withName(tackle.getMetadata().getName())
+                .withUid(tackle.getMetadata().getUid())
+                .withBlockOwnerDeletion(true)
+                .build();
 
         final TackleSpec tackleSpec = tackle.getSpec();
         if (tackleSpec != null) {
             final String dockerhubConfigJson = tackleSpec.getDockerhubConfigJson();
             if (!StringUtils.isEmpty(dockerhubConfigJson)) {
-                Secret dockerhubSecret = kubernetesClient.secrets().load(getClass().getResourceAsStream("templates/docker-hub-image-puller.yaml")).get();
+                Secret dockerhubSecret = kubernetesClient.secrets().load(getClass().getResourceAsStream("deployers/templates/docker-hub-image-puller.yaml")).get();
                 dockerhubSecret.getMetadata().setNamespace(namespace);
                 Map<String, String> data = Collections.singletonMap(".dockerconfigjson", dockerhubConfigJson);
                 dockerhubSecret.setData(data);
+                dockerhubSecret.getMetadata().getOwnerReferences().add(tackleOwnerReference);
                 kubernetesClient.secrets().inNamespace(namespace).createOrReplace(dockerhubSecret);
             }
             else log.warn("No 'spec.dockerhubConfigJson' has been provided: anonymous image pulling from Dockerhub could suffer for rate limits.");
         }
         else log.info("Tackle resource without spec: default configuration will be applied");
 
-        // deploy all DB instances
-        MixedOperation<PostgreSQL, KubernetesResourceList<PostgreSQL>, Resource<PostgreSQL>> postgreSQLClient = kubernetesClient.customResources(PostgreSQL.class);
-
-        PostgreSQL postgreSQLKeycloak = postgreSQLClient.load(TackleController.class.getResourceAsStream("postgresql/keycloak-postgresql.yaml")).get();
-        postgreSQLKeycloak.getMetadata().setNamespace(namespace);
-        postgreSQLClient.inNamespace(namespace).createOrReplace(postgreSQLKeycloak);
-
-/*
-        PostgreSQL postgreSQLControls = postgreSQLClient.load(TackleController.class.getResourceAsStream("postgresql/controls-postgresql.yaml")).get();
-        postgreSQLControls.getMetadata().setNamespace(namespace);
-        postgreSQLClient.inNamespace(namespace).createOrReplace(postgreSQLControls);
-
-        PostgreSQL postgreSQLApplicationInventory = postgreSQLClient.load(TackleController.class.getResourceAsStream("postgresql/application-inventory-postgresql.yaml")).get();
-        postgreSQLApplicationInventory.getMetadata().setNamespace(namespace);
-        postgreSQLClient.inNamespace(namespace).createOrReplace(postgreSQLApplicationInventory);
-
-        PostgreSQL postgreSQLPathfinder = postgreSQLClient.load(TackleController.class.getResourceAsStream("postgresql/pathfinder-postgresql.yaml")).get();
-        postgreSQLPathfinder.getMetadata().setNamespace(namespace);
-        postgreSQLClient.inNamespace(namespace).createOrReplace(postgreSQLPathfinder);
-*/
-
         // deploy Keycloak instance
-        MixedOperation<Keycloak, KubernetesResourceList<Keycloak>, Resource<Keycloak>> keycloakClient = kubernetesClient.customResources(Keycloak.class);
-        Keycloak keycloak = keycloakClient.load(TackleController.class.getResourceAsStream("keycloak/keycloak.yaml")).get();
-        keycloakClient.inNamespace(namespace).createOrReplace(keycloak);
+        log.infof("Deploying Keycloak for '%s' in namespace '%s'", name, namespace);
+        final String keycloakName = keycloakDeployer.createOrUpdateResource(tackle, keycloakImage, keycloakDbImage);
+        final String tackleRealmUrl = String.format("http://%s:8080/auth/realms/tackle", keycloakName);
 
-/*
-        // deploy REST services instance
-        MixedOperation<Rest, KubernetesResourceList<Rest>, Resource<Rest>> restClient = kubernetesClient.customResources(Rest.class);
-        Rest controls = restClient.load(TackleController.class.getResourceAsStream("rest/controls-rest.yaml")).get();
-        restClient.inNamespace(namespace).createOrReplace(controls);
-        Rest applicationInventory = restClient.load(TackleController.class.getResourceAsStream("rest/application-inventory-rest.yaml")).get();
-        restClient.inNamespace(namespace).createOrReplace(applicationInventory);
-        Rest pathfinder = restClient.load(TackleController.class.getResourceAsStream("rest/pathfinder-rest.yaml")).get();
-        restClient.inNamespace(namespace).createOrReplace(pathfinder);
-*/
+        // deploy microservices
+        log.infof("Deploying Application Inventory for '%s' in namespace '%s'", name, namespace);
+        final String applicationInventoryName = microserviceDeployer.createOrUpdateResource(tackle, "application-inventory", applicationInventoryImage, applicationInventoryDbImage,
+                tackleRealmUrl, "application_inventory_db", "application-inventory");
 
-        // alternative approach: deploy 'microservice's
-        MixedOperation<Microservice, KubernetesResourceList<Microservice>, Resource<Microservice>> microserviceClient = kubernetesClient.customResources(Microservice.class);
+        log.infof("Deploying Controls for '%s' in namespace '%s'", name, namespace);
+        final String controlsName = microserviceDeployer.createOrUpdateResource(tackle, "controls", controlsImage, controlsDbImage,
+                tackleRealmUrl, "controls_db", "controls");
 
-        Microservice applicationInventory = microserviceClient.load(TackleController.class.getResourceAsStream("microservice/tackle-application-inventory.yaml")).get();
-        microserviceClient.inNamespace(namespace).createOrReplace(applicationInventory);
-
-        Microservice controls = microserviceClient.load(TackleController.class.getResourceAsStream("microservice/tackle-controls.yaml")).get();
-        microserviceClient.inNamespace(namespace).createOrReplace(controls);
-
-        Microservice pathfinder = microserviceClient.load(TackleController.class.getResourceAsStream("microservice/tackle-pathfinder.yaml")).get();
-        microserviceClient.inNamespace(namespace).createOrReplace(pathfinder);
+        log.infof("Deploying Pathfinder for '%s' in namespace '%s'", name, namespace);
+        final String pathfinderName = microserviceDeployer.createOrUpdateResource(tackle, "pathfinder", pathfinderImage, pathfinderDbImage,
+                tackleRealmUrl, "pathfinder_db", "pathfinder");
 
         // deploy the UI instance
-        MixedOperation<Ui, KubernetesResourceList<Ui>, Resource<Ui>> uiClient = kubernetesClient.customResources(Ui.class);
-        Ui ui = uiClient.load(TackleController.class.getResourceAsStream("ui/tackle-ui.yaml")).get();
-        uiClient.inNamespace(namespace).createOrReplace(ui);
+        log.infof("Deploying UI for '%s' in namespace '%s'", name, namespace);
+        uiDeployer.createOrUpdateResource(tackle, uiImage,
+                String.format("http://%s-rest:8080", controlsName),
+                String.format("http://%s-rest:8080", applicationInventoryName),
+                String.format("http://%s-rest:8080", pathfinderName),
+                String.format("http://%s:8080", keycloakName));
 
-        BasicStatus status = new BasicStatus();
-        tackle.setStatus(status);
-        return UpdateControl.updateCustomResource(tackle);
+        if (status == null) {
+            status = new TackleStatus();
+            tackle.setStatus(status);
+        }
+        Condition condition = new ConditionBuilder()
+                .withLastTransitionTime(ZonedDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_INSTANT))
+                .withType(CONDITION_TYPE_READY)
+                .withStatus(CONDITION_STATUS_TRUE)
+                .withReason("-")
+                .withMessage("-")
+                .build();
+        status.getConditions().add(condition);
+        return UpdateControl.updateStatusSubResource(tackle);
     }
 
 }

@@ -1,6 +1,0 @@
-apiVersion: tackle.io/v1alpha1
-kind: Ui
-metadata:
-  name: tackle
-spec:
-  image: quay.io/konveyor/tackle-ui:main

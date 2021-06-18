@@ -24,8 +24,7 @@ spec:
       serviceAccount: tackle-operator
       containers:
       - name: tackle-operator
-        image: quay.io/mrizzi/tackle-operator:1.0.0-SNAPSHOT-native
-#        image: quay.io/mrizzi/tackle-operator:1.0.0-SNAPSHOT-jvm
+        image: quay.io/{user}/tackle-operator:1.0.0-SNAPSHOT-native
         imagePullPolicy: Always
         env:
           - name: JAVA_OPERATOR_SDK_CHECK_CRD
@@ -78,16 +77,12 @@ rules:
   - update
   - patch
   - delete
-#  - deletecollection
 - apiGroups:
   - tackle.io
   resources:
-  - postgresqls
-  - keycloaks
-  - rests
-  - uis
   - tackles
-  - microservices
+  - tackles/finalizers
+  - tackles/status
   verbs:
   - '*'
 - apiGroups:
@@ -103,28 +98,9 @@ rules:
     - ingresses
   verbs:
     - '*'
-#---
-#apiVersion: rbac.authorization.k8s.io/v1
-#kind: ClusterRoleBinding
-#metadata:
-#  name: tackle-operator-admin
-#subjects:
-#  - kind: ServiceAccount
-#    name: tackle-operator
-#    namespace: tackle-operator
-#roleRef:
-#  kind: ClusterRole
-#  name: tackle-operator
-#  apiGroup: ""
-#---
-#apiVersion: rbac.authorization.k8s.io/v1
-#kind: ClusterRole
-#metadata:
-#  name: tackle-operator
-#rules:
-#- apiGroups:
-#  - apiextensions.k8s.io
-#  resources:
-#  - customresourcedefinitions
-#  verbs:
-#  - get
+- apiGroups:
+    - route.openshift.io
+  resources:
+    - routes
+  verbs:
+    - '*'

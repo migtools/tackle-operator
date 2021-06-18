@@ -8,6 +8,8 @@ metadata:
     app.kubernetes.io/instance: ""
     app.kubernetes.io/part-of: tackle
 spec:
+  tls:
+    - {}
   rules:
     - http:
         paths:

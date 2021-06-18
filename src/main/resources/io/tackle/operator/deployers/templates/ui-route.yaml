@@ -1,0 +1,15 @@
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: ""
+  labels:
+    app.kubernetes.io/name: ""
+    app.kubernetes.io/component: application
+    app.kubernetes.io/instance: ""
+    app.kubernetes.io/part-of: tackle
+spec:
+  host: ""
+  to:
+    name: ""
+  tls:
+    termination: edge

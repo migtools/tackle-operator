@@ -52,11 +52,11 @@ spec:
             - name: DB_VENDOR
               value: postgres
             - name: DB_ADDR
-              value: keycloak-postgresql
+              value: ""
             - name: DB_DATABASE
               valueFrom:
                 secretKeyRef:
-                  name: keycloak-postgresql
+                  name: ""
                   key: database-name
             - name: DB_USER
               valueFrom:

@@ -1,6 +1,5 @@
-package io.tackle.operator;
+package io.tackle.operator.deployers;
 
-import io.fabric8.kubernetes.api.model.DeletionPropagation;
 import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.PersistentVolumeClaim;
 import io.fabric8.kubernetes.api.model.PersistentVolumeClaimVolumeSource;
@@ -8,23 +7,21 @@ import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.fabric8.kubernetes.client.dsl.Resource;
-import io.fabric8.kubernetes.client.dsl.RollableScalableResource;
-import io.fabric8.kubernetes.client.dsl.ServiceResource;
-import io.javaoperatorsdk.operator.api.Context;
-import io.javaoperatorsdk.operator.api.Controller;
-import io.javaoperatorsdk.operator.api.DeleteControl;
-import io.javaoperatorsdk.operator.api.ResourceController;
-import io.javaoperatorsdk.operator.api.UpdateControl;
+import io.tackle.operator.Tackle;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.jboss.logging.Logger;
 
-import javax.inject.Inject;
+import javax.enterprise.context.ApplicationScoped;
 import java.util.Base64;
 import java.util.List;
 
-@Controller(namespaces = Controller.WATCH_CURRENT_NAMESPACE)
-public class PostgreSQLController extends AbstractController implements ResourceController<PostgreSQL> {
+import static io.tackle.operator.Utils.LABEL_NAME;
+import static io.tackle.operator.Utils.addDockerhubImagePullSecret;
+import static io.tackle.operator.Utils.applyDefaultMetadata;
+import static io.tackle.operator.Utils.metadataName;
+
+@ApplicationScoped
+public class PostgreSQLDeployer {
 
     public static final String RESOURCE_NAME_SUFFIX = "postgresql"; 
     public static final String DATABASE_NAME = "database-name"; 
@@ -32,21 +29,21 @@ public class PostgreSQLController extends AbstractController implements Resource
     public static final String DATABASE_USER = "database-user"; 
     private static final String USERNAME_FORMAT = "user-%s";
     private final Logger log = Logger.getLogger(getClass());
-    @Inject
-    KubernetesClient kubernetesClient;
 
-    @Override
-    public UpdateControl<PostgreSQL> createOrUpdateResource(PostgreSQL postgreSQL, Context<PostgreSQL> context) {
-        String namespace = postgreSQL.getMetadata().getNamespace();
-        String name = metadataName(postgreSQL, RESOURCE_NAME_SUFFIX);
-
-        Secret secret = loadYaml(Secret.class, "templates/postgresql-secret.yaml");
-        applyDefaultMetadata(secret, name, namespace);
+    public String createOrUpdateResource(KubernetesClient kubernetesClient,
+                                       Tackle tackle,
+                                       String creatorName,
+                                       String image,
+                                       String schema) {
+        final String namespace = tackle.getMetadata().getNamespace();
+        final String name = metadataName(creatorName, RESOURCE_NAME_SUFFIX);
+        Secret secret = kubernetesClient.secrets().load(getClass().getResourceAsStream("templates/postgresql-secret.yaml")).get();
+        applyDefaultMetadata(tackle, creatorName, secret, RESOURCE_NAME_SUFFIX);
         // worth letting the user setting them?
         String password = RandomStringUtils.randomAlphanumeric(16);
         secret
                 .getData()
-                .put(DATABASE_NAME, Base64.getEncoder().encodeToString(String.format("%s_db", metadataName(postgreSQL).replace("-", "_")).getBytes()));
+                .put(DATABASE_NAME, Base64.getEncoder().encodeToString(schema.getBytes()));
         secret
                 .getData()
                 .put(DATABASE_PASSWORD, Base64.getEncoder().encodeToString(password.getBytes()));
@@ -54,11 +51,11 @@ public class PostgreSQLController extends AbstractController implements Resource
                 .getData()
                 .put(DATABASE_USER, Base64.getEncoder().encodeToString(String.format(USERNAME_FORMAT, RandomStringUtils.randomAlphanumeric(4)).getBytes()));
 
-        PersistentVolumeClaim pvc = loadYaml(PersistentVolumeClaim.class, "templates/postgresql-persistentvolumeclaim.yaml");
-        applyDefaultMetadata(pvc, name, namespace);
+        PersistentVolumeClaim pvc = kubernetesClient.persistentVolumeClaims().load(getClass().getResourceAsStream("templates/postgresql-persistentvolumeclaim.yaml")).get();
+        applyDefaultMetadata(tackle, creatorName, pvc, RESOURCE_NAME_SUFFIX);
 
-        Deployment deployment = loadYaml(Deployment.class, "templates/postgresql-deployment.yaml");
-        applyDefaultMetadata(deployment, name, namespace);
+        Deployment deployment = kubernetesClient.apps().deployments().load(getClass().getResourceAsStream("templates/postgresql-deployment.yaml")).get();
+        applyDefaultMetadata(tackle, creatorName, deployment, RESOURCE_NAME_SUFFIX);
         deployment
                 .getSpec()
                 .getSelector()
@@ -94,7 +91,7 @@ public class PostgreSQLController extends AbstractController implements Resource
                 .getSpec()
                 .getContainers()
                 .get(0)
-                .setImage(postgreSQL.getSpec().getImage());
+                .setImage(image);
         deployment
                 .getSpec()
                 .getTemplate()
@@ -103,9 +100,9 @@ public class PostgreSQLController extends AbstractController implements Resource
                 .get(0)
                 .setName(name);
         addDockerhubImagePullSecret(deployment, kubernetesClient.secrets().inNamespace(namespace));
-        
-        Service service = loadYaml(Service.class, "templates/postgresql-service.yaml");
-        applyDefaultMetadata(service, name, namespace);
+
+        Service service = kubernetesClient.services().load(getClass().getResourceAsStream("templates/postgresql-service.yaml")).get();
+        applyDefaultMetadata(tackle, creatorName, service, RESOURCE_NAME_SUFFIX);
         service
                 .getSpec()
                 .getSelector()
@@ -131,64 +128,6 @@ public class PostgreSQLController extends AbstractController implements Resource
 
         log.infof("Creating or updating Service '%s' in namespace '%s'", service.getMetadata().getName(), namespace);
         kubernetesClient.services().inNamespace(namespace).createOrReplace(service);
-
-        BasicStatus status = new BasicStatus();
-        postgreSQL.setStatus(status);
-        return UpdateControl.updateCustomResource(postgreSQL);
+        return name;
     }
-
-    @Override
-    public DeleteControl deleteResource(PostgreSQL postgreSQL, Context<PostgreSQL> context) {
-        String namespace = postgreSQL.getMetadata().getNamespace();
-        String name = metadataName(postgreSQL, RESOURCE_NAME_SUFFIX);
-        log.infof("Execution deleteResource for '%s' in namespace '%s'", name, namespace);
-
-        log.infof("Deleting Service '%s' in namespace '%s'", name, namespace);
-        ServiceResource<Service> service =
-                kubernetesClient
-                        .services()
-                        .inNamespace(namespace)
-                        .withName(name);
-        if (service.get() != null) {
-            service.delete();
-        }
-        log.infof("Deleted Service '%s' in namespace '%s'", name, namespace);
-
-        log.infof("Deleting Deployment '%s' in namespace '%s'", name, namespace);
-        RollableScalableResource<Deployment> deployment =
-                kubernetesClient
-                        .apps()
-                        .deployments()
-                        .inNamespace(namespace)
-                        .withName(name);
-        if (deployment.get() != null) {
-            deployment.withPropagationPolicy(DeletionPropagation.FOREGROUND).delete();
-        }
-        log.infof("Deleted Deployment '%s' in namespace '%s' with propagation", name, namespace);
-
-        log.infof("Deleting PersistentVolumeClaim '%s' in namespace '%s'", name, namespace);
-        Resource<PersistentVolumeClaim> pvc =
-                kubernetesClient
-                        .persistentVolumeClaims()
-                        .inNamespace(namespace)
-                        .withName(name);
-        if (pvc.get() != null) {
-            pvc.withPropagationPolicy(DeletionPropagation.FOREGROUND).delete();
-        }
-        log.infof("Deleted PersistentVolumeClaim '%s' in namespace '%s' with propagation", name, namespace);
-
-        log.infof("Deleting Secret '%s' in namespace '%s'", name, namespace);
-        Resource<Secret> secret =
-                kubernetesClient
-                        .secrets()
-                        .inNamespace(namespace)
-                        .withName(name);
-        if (secret.get() != null) {
-            secret.delete();
-        }
-        log.infof("Deleted Secret '%s' in namespace '%s'", name, namespace);
-
-        return DeleteControl.DEFAULT_DELETE;
-    }
-
 }

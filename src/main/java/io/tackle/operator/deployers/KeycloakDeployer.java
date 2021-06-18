@@ -1,46 +1,49 @@
-package io.tackle.operator;
+package io.tackle.operator.deployers;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
-import io.fabric8.kubernetes.api.model.DeletionPropagation;
 import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.fabric8.kubernetes.client.dsl.Resource;
-import io.fabric8.kubernetes.client.dsl.RollableScalableResource;
-import io.fabric8.kubernetes.client.dsl.ServiceResource;
-import io.javaoperatorsdk.operator.api.Context;
-import io.javaoperatorsdk.operator.api.Controller;
-import io.javaoperatorsdk.operator.api.DeleteControl;
-import io.javaoperatorsdk.operator.api.ResourceController;
-import io.javaoperatorsdk.operator.api.UpdateControl;
+import io.tackle.operator.Tackle;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.jboss.logging.Logger;
 
+import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 import java.util.Base64;
 import java.util.List;
 
-@Controller(namespaces = Controller.WATCH_CURRENT_NAMESPACE)
-public class KeycloakController extends AbstractController implements ResourceController<Keycloak> {
+import static io.tackle.operator.Utils.LABEL_NAME;
+import static io.tackle.operator.Utils.addDockerhubImagePullSecret;
+import static io.tackle.operator.Utils.applyDefaultMetadata;
+import static io.tackle.operator.Utils.metadataName;
+
+@ApplicationScoped
+public class KeycloakDeployer {
 
     public static final String ADMIN_USERNAME = "admin-username";
     public static final String ADMIN_PASSWORD = "admin-password";
+    public static final String RESOURCE_NAME_SUFFIX = "keycloak";
 
     private final Logger log = Logger.getLogger(getClass());
 
     @Inject
     KubernetesClient kubernetesClient;
+    @Inject
+    PostgreSQLDeployer postgreSQLDeployer;
 
-    @Override
-    public UpdateControl<Keycloak> createOrUpdateResource(Keycloak keycloak, Context<Keycloak> context) {
-        String namespace = keycloak.getMetadata().getNamespace();
-        // Keycloak is unique, no need for suffixes in the name
-        String name = metadataName(keycloak);
+    public String createOrUpdateResource(Tackle tackle, String keycloakImage, String keycloakDbImage) {
+        final String namespace = tackle.getMetadata().getNamespace();
+        final String name = metadataName(tackle, RESOURCE_NAME_SUFFIX);
+
+        log.infof("Execution createOrUpdateResource for '%s' in namespace '%s'", name, namespace);
+        // Deploy the PostgreSQL DB
+        final String postgreSQLName = postgreSQLDeployer.createOrUpdateResource(kubernetesClient, tackle, name, keycloakDbImage, "keycloak_db");
 
         Secret secret = kubernetesClient.secrets().load(getClass().getResourceAsStream("templates/keycloak-secret.yaml")).get();
-        applyDefaultMetadata(secret, name, namespace);
+        applyDefaultMetadata(tackle, secret, RESOURCE_NAME_SUFFIX);
         String password = RandomStringUtils.randomAlphanumeric(16);
         secret
                 .getData()
@@ -50,10 +53,10 @@ public class KeycloakController extends AbstractController implements ResourceCo
                 .put(ADMIN_PASSWORD, Base64.getEncoder().encodeToString(password.getBytes()));
 
         ConfigMap configMap = kubernetesClient.configMaps().load(getClass().getResourceAsStream("templates/keycloak-configmap.yaml")).get();
-        applyDefaultMetadata(configMap, name, namespace);
+        applyDefaultMetadata(tackle, configMap, RESOURCE_NAME_SUFFIX);
 
         Deployment deployment = kubernetesClient.apps().deployments().load(getClass().getResourceAsStream("templates/keycloak-deployment.yaml")).get();
-        applyDefaultMetadata(deployment, name, namespace);
+        applyDefaultMetadata(tackle, deployment, RESOURCE_NAME_SUFFIX);
         deployment
                 .getSpec()
                 .getSelector()
@@ -85,8 +88,10 @@ public class KeycloakController extends AbstractController implements ResourceCo
         envs.get(0).getValueFrom().getSecretKeyRef().setName(name);
         envs.get(1).getValueFrom().getSecretKeyRef().setName(name);
         // DB credentials from secret
-        envs.get(7).getValueFrom().getSecretKeyRef().setName(metadataName(keycloak, PostgreSQLController.RESOURCE_NAME_SUFFIX));
-        envs.get(8).getValueFrom().getSecretKeyRef().setName(metadataName(keycloak, PostgreSQLController.RESOURCE_NAME_SUFFIX));
+        envs.get(5).setValue(postgreSQLName);
+        envs.get(6).getValueFrom().getSecretKeyRef().setName(postgreSQLName);
+        envs.get(7).getValueFrom().getSecretKeyRef().setName(postgreSQLName);
+        envs.get(8).getValueFrom().getSecretKeyRef().setName(postgreSQLName);
 
         deployment
                 .getSpec()
@@ -94,7 +99,7 @@ public class KeycloakController extends AbstractController implements ResourceCo
                 .getSpec()
                 .getContainers()
                 .get(0)
-                .setImage(keycloak.getSpec().getImage());
+                .setImage(keycloakImage);
         deployment
                 .getSpec()
                 .getTemplate()
@@ -105,7 +110,7 @@ public class KeycloakController extends AbstractController implements ResourceCo
         addDockerhubImagePullSecret(deployment, kubernetesClient.secrets().inNamespace(namespace));
 
         Service service = kubernetesClient.services().load(getClass().getResourceAsStream("templates/keycloak-service.yaml")).get();
-        applyDefaultMetadata(service, name, namespace);
+        applyDefaultMetadata(tackle, service, RESOURCE_NAME_SUFFIX);
         service
                 .getSpec()
                 .getSelector()
@@ -122,64 +127,7 @@ public class KeycloakController extends AbstractController implements ResourceCo
 
         log.infof("Creating or updating Service '%s' in namespace '%s'", service.getMetadata().getName(), namespace);
         kubernetesClient.services().inNamespace(namespace).createOrReplace(service);
-
-        BasicStatus status = new BasicStatus();
-        keycloak.setStatus(status);
-        return UpdateControl.updateCustomResource(keycloak);
-    }
-
-    @Override
-    public DeleteControl deleteResource(Keycloak keycloak, Context<Keycloak> context) {
-        String namespace = keycloak.getMetadata().getNamespace();
-        String name = metadataName(keycloak);
-        log.infof("Execution deleteResource for '%s' in namespace '%s'", name, namespace);
-
-        log.infof("Deleting Service '%s' in namespace '%s'", name, namespace);
-        ServiceResource<Service> service =
-                kubernetesClient
-                        .services()
-                        .inNamespace(namespace)
-                        .withName(name);
-        if (service.get() != null) {
-            service.delete();
-        }
-        log.infof("Deleted Service '%s' in namespace '%s'", name, namespace);
-
-        log.infof("Deleting Deployment '%s' in namespace '%s'", name, namespace);
-        RollableScalableResource<Deployment> deployment =
-                kubernetesClient
-                        .apps()
-                        .deployments()
-                        .inNamespace(namespace)
-                        .withName(name);
-        if (deployment.get() != null) {
-            deployment.withPropagationPolicy(DeletionPropagation.FOREGROUND).delete();
-        }
-        log.infof("Deleted Deployment '%s' in namespace '%s' with propagation", name, namespace);
-
-        log.infof("Deleting ConfigMap '%s' in namespace '%s'", name, namespace);
-        Resource<ConfigMap> configMap =
-                kubernetesClient
-                        .configMaps()
-                        .inNamespace(namespace)
-                        .withName(name);
-        if (configMap.get() != null) {
-            configMap.delete();
-        }
-        log.infof("Deleted ConfigMap '%s' in namespace '%s'", name, namespace);
-
-        log.infof("Deleting Secret '%s' in namespace '%s'", name, namespace);
-        Resource<Secret> secret =
-                kubernetesClient
-                        .secrets()
-                        .inNamespace(namespace)
-                        .withName(name);
-        if (secret.get() != null) {
-            secret.delete();
-        }
-        log.infof("Deleted Secret '%s' in namespace '%s'", name, namespace);
-
-        return DeleteControl.DEFAULT_DELETE;
+        return name;
     }
 
 }
