@@ -7,7 +7,7 @@ jobs:
     name: K8S
     runs-on: ubuntu-latest
     env:
-      tackle_namespace: tackle
+      tackle_ns: tackle
     steps:
       - name: Checkout
         uses: actions/checkout@v2.0.0
@@ -41,9 +41,9 @@ jobs:
         run: |
           cd ${{github.workspace}}
           cd src/main/resources/k8s
-          kubectl create namespace ${{tackle_ns}}
-          kubectl apply -f crds/crds.yaml -n ${{tackle_ns}}
-          kubectl apply -f operator.yaml -n ${{tackle_ns}}
+          kubectl create namespace ${{env.tackle_ns}}
+          kubectl apply -f crds/crds.yaml -n ${{env.tackle_ns}}
+          kubectl apply -f operator.yaml -n ${{env.tackle_ns}}
 
       - name: Sleep for 10 seconds to allow operator to start
         uses: jakejarvis/wait-action@master
@@ -54,7 +54,7 @@ jobs:
         run: |
           cd ${{github.workspace}}
           cd src/main/resources/k8s
-          kubectl apply -f tackle/tackle.yaml -n ${{tackle_ns}}
+          kubectl apply -f tackle/tackle.yaml -n ${{env.tackle_ns}}
 
       - name: Sleep for 30 seconds to allow objects to be created
         uses: jakejarvis/wait-action@master
@@ -64,16 +64,16 @@ jobs:
       - name: Check number of k8s objects created by operator
         id: getobjects
         run: |
-          test "4" = "$(kubectl get pvc -n $tackle_ns -o name | wc -l)"
-          test "10" = "$(kubectl get pods -n $tackle_ns -o name | wc -l)"
-          test "9" = "$(kubectl get service -n $tackle_ns -o name | wc -l)"
-          test "10" = "$(kubectl get deployments -n $tackle_ns -o name | wc -l)"
+          test "4" = "$(kubectl get pvc -n ${{env.tackle_ns}} -o name | wc -l)"
+          test "10" = "$(kubectl get pods -n ${{env.tackle_ns}} -o name | wc -l)"
+          test "9" = "$(kubectl get service -n ${{env.tackle_ns}} -o name | wc -l)"
+          test "10" = "$(kubectl get deployments -n ${{env.tackle_ns}} -o name | wc -l)"
         shell: bash
 
       - name: All pods are ok ?
         id: checkpods
         run: |
-          test "10" = "$(kubectl get pods -n $tackle_ns -o json  | jq -r '.items[] | select(.status.phase == "Running" or ([ .status.conditions[] | select(.type == "Ready" and .status == true) ] | length ) == 1 ) | .metadata.namespace + "/" + .metadata.name' | wc -l)"
+          test "10" = "$(kubectl get pods -n ${{env.tackle_ns}} -o json  | jq -r '.items[] | select(.status.phase == "Running" or ([ .status.conditions[] | select(.type == "Ready" and .status == true) ] | length ) == 1 ) | .metadata.namespace + "/" + .metadata.name' | wc -l)"
 
       - name: Do requests to check services are OK
         id: checkservices
