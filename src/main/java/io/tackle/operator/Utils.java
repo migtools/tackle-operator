@@ -3,6 +3,7 @@ package io.tackle.operator;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.LocalObjectReference;
 import io.fabric8.kubernetes.api.model.Namespaced;
+import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.api.model.OwnerReferenceBuilder;
 import io.fabric8.kubernetes.api.model.Secret;
@@ -12,7 +13,13 @@ import io.fabric8.kubernetes.client.CustomResource;
 import io.fabric8.kubernetes.client.dsl.NonNamespaceOperation;
 import io.fabric8.kubernetes.client.dsl.Resource;
 
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 
 public class Utils {
 
@@ -70,5 +77,23 @@ public class Utils {
         if (secrets.withName(DOCKERHUB_IMAGE_PULLER_SECRET_NAME).get() != null) {
             deployment.getSpec().getTemplate().getSpec().getImagePullSecrets().add(new LocalObjectReference(DOCKERHUB_IMAGE_PULLER_SECRET_NAME));
         }
+    }
+
+    public static void addOpenshiftAnnotationConnectsTo(HasMetadata resource, String... connections) {
+        addOpenshiftAnnotationConnectsTo(resource, Arrays.asList(connections));
+    }
+
+    public static void addOpenshiftAnnotationConnectsTo(HasMetadata resource, List<String> connections) {
+        final List<String> connectsTo = connections.stream()
+                .map(connection -> String.format("{\"apiVersion\":\"apps/v1\",\"kind\":\"Deployment\",\"name\":\"%s\"}", connection))
+                .collect(Collectors.toList());
+        final ObjectMeta metadata = resource.getMetadata();
+        Map<String, String> annotations = Optional.ofNullable(metadata.getAnnotations())
+                .orElseGet(() -> {
+                    Map<String, String> newAnnotations = new HashMap<>();
+                    metadata.setAnnotations(newAnnotations);
+                    return newAnnotations;
+                });
+        annotations.put("app.openshift.io/connects-to", connectsTo.toString());
     }
 }

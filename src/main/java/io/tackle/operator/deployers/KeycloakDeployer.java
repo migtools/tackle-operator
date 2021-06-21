@@ -17,6 +17,7 @@ import java.util.List;
 
 import static io.tackle.operator.Utils.LABEL_NAME;
 import static io.tackle.operator.Utils.addDockerhubImagePullSecret;
+import static io.tackle.operator.Utils.addOpenshiftAnnotationConnectsTo;
 import static io.tackle.operator.Utils.applyDefaultMetadata;
 import static io.tackle.operator.Utils.metadataName;
 
@@ -108,6 +109,7 @@ public class KeycloakDeployer {
                 .get(0)
                 .setName(name);
         addDockerhubImagePullSecret(deployment, kubernetesClient.secrets().inNamespace(namespace));
+        addOpenshiftAnnotationConnectsTo(deployment, postgreSQLName);
 
         Service service = kubernetesClient.services().load(getClass().getResourceAsStream("templates/keycloak-service.yaml")).get();
         applyDefaultMetadata(tackle, service, RESOURCE_NAME_SUFFIX);

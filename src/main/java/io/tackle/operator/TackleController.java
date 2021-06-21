@@ -22,7 +22,9 @@ import javax.inject.Inject;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 import static io.tackle.operator.Utils.CONDITION_STATUS_TRUE;
@@ -110,27 +112,32 @@ public class TackleController implements ResourceController<Tackle> {
         log.infof("Deploying Keycloak for '%s' in namespace '%s'", name, namespace);
         final String keycloakName = keycloakDeployer.createOrUpdateResource(tackle, keycloakImage, keycloakDbImage);
         final String tackleRealmUrl = String.format("http://%s:8080/auth/realms/tackle", keycloakName);
+        final List<String> annotationConnectToKeycloak = List.of(keycloakName);
 
         // deploy microservices
         log.infof("Deploying Application Inventory for '%s' in namespace '%s'", name, namespace);
         final String applicationInventoryName = microserviceDeployer.createOrUpdateResource(tackle, "application-inventory", applicationInventoryImage, applicationInventoryDbImage,
-                tackleRealmUrl, "application_inventory_db", "application-inventory");
+                tackleRealmUrl, "application_inventory_db", "application-inventory", annotationConnectToKeycloak);
 
         log.infof("Deploying Controls for '%s' in namespace '%s'", name, namespace);
         final String controlsName = microserviceDeployer.createOrUpdateResource(tackle, "controls", controlsImage, controlsDbImage,
-                tackleRealmUrl, "controls_db", "controls");
+                tackleRealmUrl, "controls_db", "controls", annotationConnectToKeycloak);
 
         log.infof("Deploying Pathfinder for '%s' in namespace '%s'", name, namespace);
         final String pathfinderName = microserviceDeployer.createOrUpdateResource(tackle, "pathfinder", pathfinderImage, pathfinderDbImage,
-                tackleRealmUrl, "pathfinder_db", "pathfinder");
+                tackleRealmUrl, "pathfinder_db", "pathfinder", annotationConnectToKeycloak);
 
         // deploy the UI instance
         log.infof("Deploying UI for '%s' in namespace '%s'", name, namespace);
+        final String controlsRestName = String.format("%s-rest", controlsName);
+        final String pathfinderRestName = String.format("%s-rest", pathfinderName);
+        final String applicationInventoryRestName = String.format("%s-rest", applicationInventoryName);
         uiDeployer.createOrUpdateResource(tackle, uiImage,
-                String.format("http://%s-rest:8080", controlsName),
-                String.format("http://%s-rest:8080", applicationInventoryName),
-                String.format("http://%s-rest:8080", pathfinderName),
-                String.format("http://%s:8080", keycloakName));
+                String.format("http://%s:8080", controlsRestName),
+                String.format("http://%s:8080", applicationInventoryRestName),
+                String.format("http://%s:8080", pathfinderRestName),
+                String.format("http://%s:8080", keycloakName),
+                Arrays.asList(controlsRestName, pathfinderRestName, applicationInventoryRestName, keycloakName));
 
         if (status == null) {
             status = new TackleStatus();

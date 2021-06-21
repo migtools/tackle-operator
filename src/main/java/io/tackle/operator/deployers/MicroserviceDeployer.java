@@ -6,6 +6,8 @@ import org.jboss.logging.Logger;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
+import java.util.ArrayList;
+import java.util.List;
 
 import static io.tackle.operator.Utils.metadataName;
 
@@ -26,7 +28,8 @@ public class MicroserviceDeployer {
                                          String postgreSQLImage,
                                          String oidcAuthServerUrl,
                                          String databaseSchema,
-                                         String contextRoot) {
+                                         String contextRoot,
+                                         List<String> annotationConnectsTo) {
         final String namespace = tackle.getMetadata().getNamespace();
         final String name = metadataName(tackle, microserviceSuffix);
 
@@ -35,12 +38,15 @@ public class MicroserviceDeployer {
         final String postgreSQLName = postgreSQLDeployer.createOrUpdateResource(kubernetesClient, tackle, name, postgreSQLImage, databaseSchema);
 
         log.infof("Creating or updating REST for Microservice '%s' in namespace '%s'", name, namespace);
+        final List<String> connectsTo = new ArrayList<>(annotationConnectsTo);
+        connectsTo.add(postgreSQLName);
         restDeployer.createOrUpdateResource(tackle, name,
                 restImage,
                 oidcAuthServerUrl,
                 contextRoot,
                 postgreSQLName,
-                databaseSchema);
+                databaseSchema,
+                connectsTo);
 
         return name;
     }

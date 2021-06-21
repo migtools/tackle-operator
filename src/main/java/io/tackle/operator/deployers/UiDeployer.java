@@ -15,6 +15,7 @@ import javax.inject.Inject;
 import java.util.List;
 
 import static io.tackle.operator.Utils.LABEL_NAME;
+import static io.tackle.operator.Utils.addOpenshiftAnnotationConnectsTo;
 import static io.tackle.operator.Utils.applyDefaultMetadata;
 import static io.tackle.operator.Utils.metadataName;
 
@@ -31,7 +32,8 @@ public class UiDeployer {
                                        String controlsApiUrl,
                                        String applicationInventoryApiUrl,
                                        String pathfinderApiUrl,
-                                       String ssoApiUrl) {
+                                       String ssoApiUrl,
+                                       List<String> annotationConnectsTo) {
         final String namespace = tackle.getMetadata().getNamespace();
         final String name = metadataName(tackle, RESOURCE_NAME_SUFFIX);
 
@@ -75,6 +77,7 @@ public class UiDeployer {
         envs.get(1).setValue(applicationInventoryApiUrl);
         envs.get(2).setValue(pathfinderApiUrl);
         envs.get(5).setValue(ssoApiUrl);
+        addOpenshiftAnnotationConnectsTo(deployment, annotationConnectsTo);
 
         Service service = kubernetesClient.services().load(getClass().getResourceAsStream("templates/ui-service.yaml")).get();
         applyDefaultMetadata(tackle, service, RESOURCE_NAME_SUFFIX);
