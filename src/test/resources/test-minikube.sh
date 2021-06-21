@@ -3,22 +3,22 @@ set -x # print commands executed
 set -e # exit immediatly if any command fails
 
 # Build the operator image locally
-tackle_ns=tackle2
+tackle_ns=tackle
 cd ../..
 ./mvnw clean package -Pnative -DskipTests \
             -Dquarkus.native.container-build=true \
             -Dquarkus.native.container-runtime=docker \
             -Dquarkus.container-image.build=true  \
             -Dquarkus.container-image.tag=test \
-            -Dquarkus.container-image.push=false
+            -Dquarkus.container-image.push=false \
+            -Dquarkus.container-image.group=konveyor
 
 # start Minikube and deploy the image
 minikube start --addons ingress
-kubectl create namespace $tackle_ns
 minikube image load quay.io/konveyor/tackle-operator:test
 
 # deploy the operator
-#kubectl create namespace tackle
+kubectl create namespace $tackle_ns
 cd src/main/resources/k8s
 kubectl apply -f crds/crds.yaml -n $tackle_ns
 sed "s/{user}/konveyor/g" operator.yaml | kubectl apply -n $tackle_ns -f -

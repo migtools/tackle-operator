@@ -6,6 +6,8 @@ jobs:
   minikube:
     name: K8S
     runs-on: ubuntu-latest
+    env:
+      tackle_namespace: tackle
     steps:
       - name: Checkout
         uses: actions/checkout@v2.0.0
@@ -16,7 +18,7 @@ jobs:
           minikube version: v1.13.1
           kubernetes version: 'v1.19.2'
           github token: ${{ secrets.GITHUB_TOKEN }}
-          start args: ' --force'
+          start args: ' --force --addons ingress'
 
       - name: Setup Java 11
         uses: actions/setup-java@v1
@@ -26,21 +28,22 @@ jobs:
       - name: Build operator image and push it to the minikube docker host
         run: |
           cd ${{github.workspace}}
-          mvn clean package -Pnative -DskipTests \
-            -Dquarkus.native.container-build=true \
-            -Dquarkus.native.container-runtime=docker \
-            -Dquarkus.container-image.build=true  \
-            -Dquarkus.container-image.tag=test \
-            -Dquarkus.container-image.push=false
-          minikube cache add quay.io/konveyor/tackle-operator:1.0.0-SNAPSHOT-native
+          ./mvnw clean package -Pnative -DskipTests \
+              -Dquarkus.native.container-build=true \
+              -Dquarkus.native.container-runtime=docker \
+              -Dquarkus.container-image.build=true  \
+              -Dquarkus.container-image.tag=test \
+              -Dquarkus.container-image.push=false \
+              -Dquarkus.container-image.group=konveyor
+          minikube image load quay.io/konveyor/tackle-operator:test
 
       - name: Deploy operator
         run: |
           cd ${{github.workspace}}
           cd src/main/resources/k8s
-          kubectl create namespace tackle
-          kubectl apply -f crds/crds.yaml -n tackle
-          kubectl apply -f operator.yaml -n tackle
+          kubectl create namespace ${{tackle_ns}}
+          kubectl apply -f crds/crds.yaml -n ${{tackle_ns}}
+          kubectl apply -f operator.yaml -n ${{tackle_ns}}
 
       - name: Sleep for 10 seconds to allow operator to start
         uses: jakejarvis/wait-action@master
@@ -51,47 +54,43 @@ jobs:
         run: |
           cd ${{github.workspace}}
           cd src/main/resources/k8s
-          kubectl apply -f tackle/tackle.yaml -n tackle
-
-      - name: Operator Logs
-        run: kubectl logs --tail=100 -l app=windup-operator -n mta
+          kubectl apply -f tackle/tackle.yaml -n ${{tackle_ns}}
 
       - name: Sleep for 30 seconds to allow objects to be created
         uses: jakejarvis/wait-action@master
         with:
           time: '30s'
 
-      - name: Get and store number of k8s objects on mta namespace
+      - name: Check number of k8s objects created by operator
         id: getobjects
         run: |
-          test "4" = "$(kubectl get pvc -n tackle -o name | wc -l)"
-          test "9" = "$(kubectl get pods -n tackle -o name | wc -l)"
-          test "9" = "$(kubectl get service -n tackle -o name | wc -l)"
-          test "9" = "$(kubectl get deployments -n tackle -o name | wc -l)"
+          test "4" = "$(kubectl get pvc -n $tackle_ns -o name | wc -l)"
+          test "10" = "$(kubectl get pods -n $tackle_ns -o name | wc -l)"
+          test "9" = "$(kubectl get service -n $tackle_ns -o name | wc -l)"
+          test "10" = "$(kubectl get deployments -n $tackle_ns -o name | wc -l)"
         shell: bash
 
       - name: All pods are ok ?
         id: checkpods
         run: |
-          test "8" = "$(kubectl get pods --field-selector status.ready=True -n tackle -o name | wc -l)"
+          test "10" = "$(kubectl get pods -n $tackle_ns -o json  | jq -r '.items[] | select(.status.phase == "Running" or ([ .status.conditions[] | select(.type == "Ready" and .status == true) ] | length ) == 1 ) | .metadata.namespace + "/" + .metadata.name' | wc -l)"
 
       - name: Do requests to check services are OK
         id: checkservices
         run: |
           minikube_ip=$(minikube ip)
-          access_token=$(\
-              curl -X POST http://$minikube_ip:8180/auth/realms/quarkus/protocol/openid-connect/token \
-              --user backend-service:secret \
-              -H 'content-type: application/x-www-form-urlencoded' \
-              -d 'username=alice&password=alice&grant_type=password' | jq --raw-output '.access_token' \
-           )
-          test "200"==$(curl -write-out "%{http_code}\n" --silent --output /dev/null -X GET 'http://$minikube_ip:8080/pathfinder/assessments/1' \
-            -H 'Content-Type: application/json' -H 'Accept: application/json' -H "Authorization: Bearer $access_token")
+          access_token=$(curl -X POST http://$minikube_ip/auth/realms/tackle/protocol/openid-connect/token \
+              --user backend-service:secret -H 'content-type: application/x-www-form-urlencoded' \
+              -d 'username=tackle&password=password&grant_type=password' | jq --raw-output '.access_token' )
+          test "200" = "$(curl --write-out "%{http_code}\n" --silent --output /dev/null -X GET "http://$minikube_ip:/pathfinder/assessments/risk" \
+                      -d "[{'applicationId':1}]" \
+                      -H "Content-Type: application/json" -H "Accept: application/json" -H "Authorization: Bearer $access_token")"
 
-          test "200"==$(curl -write-out "%{http_code}\n" --silent --output /dev/null -X GET 'http://$minikube_ip:8080/inventory/assessments/1' \
-            -H 'Content-Type: application/json' -H 'Accept: application/json' -H "Authorization: Bearer $access_token")
+          test "200" = "$(curl --write-out "%{http_code}\n" --silent --output /dev/null -X GET "http://$minikube_ip/application_inventory/adoptionplan" \
+                      -d "[{'applicationId':1}]" \
+                      -H "Content-Type: application/json" -H "Accept: application/json" -H "Authorization: Bearer $access_token")"
 
-          test "200"==$(curl -write-out "%{http_code}\n" --silent --output /dev/null -X GET 'http://$minikube_ip:8080/controls/assessments/1' \
-            -H 'Content-Type: application/json' -H 'Accept: application/json' -H "Authorization: Bearer $access_token")
+          test "200" = "$(curl --write-out "%{http_code}\n" --silent --output /dev/null -X GET "http://$minikube_ip/controls/business-service" \
+                      -H "Content-Type: application/json" -H "Accept: application/json" -H "Authorization: Bearer $access_token")"
         shell: bash
 
