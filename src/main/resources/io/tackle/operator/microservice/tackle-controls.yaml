@@ -1,9 +1,0 @@
-apiVersion: tackle.io/v1alpha1
-kind: Microservice
-metadata:
-  name: controls
-spec:
-  restImage: quay.io/konveyor/tackle-controls:0.0.1-SNAPSHOT-native
-  postgreSQLImage: postgres:10.6
-  databaseSchema: controls_db
-  contextRoot: controls

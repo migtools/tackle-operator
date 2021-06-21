@@ -40,6 +40,7 @@ spec:
                     required:
                       - status
                       - type
+                      - lastTransitionTime
                     type: object
                   type: array
       subresources:

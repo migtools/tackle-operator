@@ -1,0 +1,123 @@
+{
+    "apiVersion": "v1",
+    "kind": "Namespace",
+    "metadata": {
+        "creationTimestamp": "2021-06-21T10:18:52Z",
+        "deletionTimestamp": "2021-06-21T13:47:02Z",
+        "managedFields": [
+            {
+                "apiVersion": "v1",
+                "fieldsType": "FieldsV1",
+                "fieldsV1": {
+                    "f:status": {
+                        "f:phase": {}
+                    }
+                },
+                "manager": "kubectl-create",
+                "operation": "Update",
+                "time": "2021-06-21T10:18:52Z"
+            },
+            {
+                "apiVersion": "v1",
+                "fieldsType": "FieldsV1",
+                "fieldsV1": {
+                    "f:status": {
+                        "f:conditions": {
+                            ".": {},
+                            "k:{\"type\":\"NamespaceContentRemaining\"}": {
+                                ".": {},
+                                "f:lastTransitionTime": {},
+                                "f:message": {},
+                                "f:reason": {},
+                                "f:status": {},
+                                "f:type": {}
+                            },
+                            "k:{\"type\":\"NamespaceDeletionContentFailure\"}": {
+                                ".": {},
+                                "f:lastTransitionTime": {},
+                                "f:message": {},
+                                "f:reason": {},
+                                "f:status": {},
+                                "f:type": {}
+                            },
+                            "k:{\"type\":\"NamespaceDeletionDiscoveryFailure\"}": {
+                                ".": {},
+                                "f:lastTransitionTime": {},
+                                "f:message": {},
+                                "f:reason": {},
+                                "f:status": {},
+                                "f:type": {}
+                            },
+                            "k:{\"type\":\"NamespaceDeletionGroupVersionParsingFailure\"}": {
+                                ".": {},
+                                "f:lastTransitionTime": {},
+                                "f:message": {},
+                                "f:reason": {},
+                                "f:status": {},
+                                "f:type": {}
+                            },
+                            "k:{\"type\":\"NamespaceFinalizersRemaining\"}": {
+                                ".": {},
+                                "f:lastTransitionTime": {},
+                                "f:message": {},
+                                "f:reason": {},
+                                "f:status": {},
+                                "f:type": {}
+                            }
+                        }
+                    }
+                },
+                "manager": "kube-controller-manager",
+                "operation": "Update",
+                "time": "2021-06-21T13:47:10Z"
+            }
+        ],
+        "name": "tackle",
+        "resourceVersion": "113815",
+        "uid": "0fc4c572-eed7-4b80-afcf-dd00bb5d00f1"
+    },
+    "spec": {
+        "finalizers": [
+        ]
+    },
+    "status": {
+        "conditions": [
+            {
+                "lastTransitionTime": "2021-06-21T13:47:10Z",
+                "message": "All resources successfully discovered",
+                "reason": "ResourcesDiscovered",
+                "status": "False",
+                "type": "NamespaceDeletionDiscoveryFailure"
+            },
+            {
+                "lastTransitionTime": "2021-06-21T13:47:10Z",
+                "message": "All legacy kube types successfully parsed",
+                "reason": "ParsedGroupVersions",
+                "status": "False",
+                "type": "NamespaceDeletionGroupVersionParsingFailure"
+            },
+            {
+                "lastTransitionTime": "2021-06-21T13:47:10Z",
+                "message": "All content successfully deleted, may be waiting on finalization",
+                "reason": "ContentDeleted",
+                "status": "False",
+                "type": "NamespaceDeletionContentFailure"
+            },
+            {
+                "lastTransitionTime": "2021-06-21T13:47:10Z",
+                "message": "Some resources are remaining: tackles.tackle.io has 1 resource instances",
+                "reason": "SomeResourcesRemain",
+                "status": "True",
+                "type": "NamespaceContentRemaining"
+            },
+            {
+                "lastTransitionTime": "2021-06-21T13:47:10Z",
+                "message": "Some content in the namespace has finalizers remaining: tackles.tackle.io/finalizer in 1 resource instances",
+                "reason": "SomeFinalizersRemain",
+                "status": "True",
+                "type": "NamespaceFinalizersRemaining"
+            }
+        ],
+        "phase": "Terminating"
+    }
+}

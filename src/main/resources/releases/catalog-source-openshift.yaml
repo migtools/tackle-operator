@@ -7,7 +7,7 @@ metadata:
     application: tackle
 spec:
   sourceType: grpc
-  image: quay.io/mrizzi/tackle-operator-test-catalog:v1.0.0
+  image: quay.io/{user}/tackle-operator-test-catalog:v1.0.0
   displayName: Tackle Test Operator Catalog
   publisher: Konveyor
   updateStrategy:

@@ -11,6 +11,16 @@ $ kubectl apply -f src/main/resources/k8s/crds/crds.yaml
 $ ./mvnw clean quarkus:dev -Dquarkus.kubernetes-client.namespace=tackle-operator
 ```
 
+## Start a local instance
+To run locally for testing purposes, build it using
+```shell
+$ ./mvnw clean package
+```
+and then run executing
+```shell
+$ java -Dquarkus.kubernetes-client.namespace=tackle-operator -jar target/quarkus-app/quarkus-run.jar
+```
+
 ## Create CR
 ```shell
 $ kubectl apply -f src/main/resources/k8s/tackle/tackle.yaml -n tackle-operator
@@ -40,7 +50,7 @@ $ ./mvnw clean package -Dquarkus.container-image.build=true -Dquarkus.container-
 
 ### Deploy
 ```shell
-$ kubectl apply -f src/main/resources/k8s/operator.yaml -n tackle-operator
+$ sed "s/{user}/$USERNAME/g" src/main/resources/k8s/operator.yaml | kubectl apply -n tackle-operator -f -
 ```
 and then [Create CR](#create-cr).
 
@@ -64,7 +74,7 @@ $ podman push quay.io/$USERNAME/tackle-operator-test-catalog:v1.0.0
 ### Install
 ```shell
 $ minikube addons enable olm # only the first time
-$ kubectl apply -f src/main/resources/releases/catalog-source.yaml
+$ sed "s/{user}/$USERNAME/g" src/main/resources/releases/catalog-source.yaml | kubectl apply -f -
 $ kubectl create -f src/main/resources/releases/tackle-operator.yaml -n tackle-operator
 $ kubectl apply -f src/main/resources/k8s/tackle/tackle.yaml -n tackle-operator
 ```

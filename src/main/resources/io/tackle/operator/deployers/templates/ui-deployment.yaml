@@ -35,7 +35,7 @@ spec:
             - name: PATHFINDER_API_URL
               value: ""
             - name: SSO_REALM
-              value: quarkus
+              value: tackle
             - name: SSO_CLIENT_ID
               value: tackle-ui
             - name: SSO_SERVER_URL

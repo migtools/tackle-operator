@@ -3,48 +3,6 @@ kind: ServiceAccount
 metadata:
   name: tackle-operator
 ---
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: tackle-operator
-  labels:
-    app.kubernetes.io/name: tackle-operator
-    app.kubernetes.io/component: operator
-    app.kubernetes.io/part-of: tackle
-spec:
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: tackle-operator
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        app.kubernetes.io/name: tackle-operator
-    spec:
-      serviceAccount: tackle-operator
-      containers:
-      - name: tackle-operator
-        image: quay.io/mrizzi/tackle-operator:1.0.0-SNAPSHOT-native
-#        image: quay.io/mrizzi/tackle-operator:1.0.0-SNAPSHOT-jvm
-        imagePullPolicy: Always
-        env:
-          - name: JAVA_OPERATOR_SDK_CHECK_CRD
-            value: 'false'
-        ports:
-        - containerPort: 80
-        readinessProbe:
-          httpGet:
-            path: /q/health
-            port: 8080
-          initialDelaySeconds: 1
-          timeoutSeconds: 1
-        livenessProbe:
-          httpGet:
-            path: /q/health
-            port: 8080
-          initialDelaySeconds: 30
-          timeoutSeconds: 1
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -52,7 +10,6 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: tackle-operator
-  namespace: tackle-operator
 roleRef:
   kind: Role
   name: tackle-operator
@@ -78,19 +35,12 @@ rules:
   - update
   - patch
   - delete
-#  - deletecollection
 - apiGroups:
   - tackle.io
   resources:
-  - keycloaks
-  - keycloaks/status
-  - uis
-  - uis/status
   - tackles
   - tackles/finalizers
   - tackles/status
-  - microservices
-  - microservices/status
   verbs:
   - '*'
 - apiGroups:
@@ -120,7 +70,6 @@ rules:
 #subjects:
 #  - kind: ServiceAccount
 #    name: tackle-operator
-#    namespace: tackle-operator
 #roleRef:
 #  kind: ClusterRole
 #  name: tackle-operator
@@ -137,3 +86,44 @@ rules:
 #  - customresourcedefinitions
 #  verbs:
 #  - get
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tackle-operator
+  labels:
+    app.kubernetes.io/name: tackle-operator
+    app.kubernetes.io/component: operator
+    app.kubernetes.io/part-of: tackle
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tackle-operator
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: tackle-operator
+    spec:
+      serviceAccountName: tackle-operator
+      containers:
+        - name: tackle-operator
+          image: quay.io/{user}/tackle-operator:1.0.0-SNAPSHOT-native
+          imagePullPolicy: Always
+          env:
+            - name: JAVA_OPERATOR_SDK_CHECK_CRD
+              value: 'false'
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /q/health
+              port: 8080
+            initialDelaySeconds: 1
+            timeoutSeconds: 1
+          livenessProbe:
+            httpGet:
+              path: /q/health
+              port: 8080
+            initialDelaySeconds: 30
+            timeoutSeconds: 1
