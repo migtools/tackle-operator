@@ -12,13 +12,14 @@ import javax.inject.Inject;
 import java.util.List;
 
 import static io.tackle.operator.Utils.LABEL_NAME;
+import static io.tackle.operator.Utils.addOpenshiftAnnotationConnectsTo;
 import static io.tackle.operator.Utils.applyDefaultMetadata;
 import static io.tackle.operator.Utils.metadataName;
 
 @ApplicationScoped
 public class RestDeployer {
 
-    private static final String RESOURCE_NAME_SUFFIX = "rest"; 
+    private static final String RESOURCE_NAME_SUFFIX = "rest";
     private final Logger log = Logger.getLogger(getClass());
     @Inject
     KubernetesClient kubernetesClient;
@@ -29,7 +30,8 @@ public class RestDeployer {
                                        String oidcAuthServerUrl,
                                        String contextRoot,
                                        String postgreSQLName,
-                                       String postgreSQLSchema) {
+                                       String postgreSQLSchema,
+                                       List<String> annotationConnectsTo) {
         final String namespace = tackle.getMetadata().getNamespace();
         final String name = metadataName(creatorName, RESOURCE_NAME_SUFFIX);
         log.infof("Execution createOrUpdateResource for '%s' in namespace '%s'", name, namespace);
@@ -47,7 +49,7 @@ public class RestDeployer {
                 .getMetadata()
                 .getLabels()
                 .put(LABEL_NAME, name);
-        List<EnvVar> envs =deployment
+        List<EnvVar> envs = deployment
                 .getSpec()
                 .getTemplate()
                 .getSpec()
@@ -91,6 +93,7 @@ public class RestDeployer {
                 .getReadinessProbe()
                 .getHttpGet()
                 .setPath(String.format("/%s/q/health/ready", contextRoot));
+        addOpenshiftAnnotationConnectsTo(deployment, annotationConnectsTo);
 
         Service service = kubernetesClient.services().load(getClass().getResourceAsStream("templates/rest-service.yaml")).get();
         applyDefaultMetadata(tackle, creatorName, service, RESOURCE_NAME_SUFFIX);
