@@ -69,10 +69,11 @@ jobs:
           test "10" = "$(kubectl get pods -n ${{env.tackle_ns}} -o name | wc -l)"
           test "9" = "$(kubectl get service -n ${{env.tackle_ns}} -o name | wc -l)"
           test "10" = "$(kubectl get deployments -n ${{env.tackle_ns}} -o name | wc -l)"
-        shell: bash
+        shell: bash {0} -x -e
 
       - name: All pods are ok ?
         id: checkpods
+        shell: bash {0} -x -e
         run: |
           test "10" = "$(kubectl get pods -n ${{env.tackle_ns}} -o json  | jq -r '.items[] | select(.status.phase == "Running" or ([ .status.conditions[] | select(.type == "Ready" and .status == true) ] | length ) == 1 ) | .metadata.namespace + "/" + .metadata.name' | wc -l)"
 
