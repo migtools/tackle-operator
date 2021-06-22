@@ -35,7 +35,7 @@ jobs:
               -Dquarkus.container-image.tag=test \
               -Dquarkus.container-image.push=false \
               -Dquarkus.container-image.group=konveyor
-          minikube image load quay.io/konveyor/tackle-operator:test
+          minikube image load konveyor/tackle-operator:test
 
       - name: Deploy operator
         run: |
