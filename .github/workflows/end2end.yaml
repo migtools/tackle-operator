@@ -65,21 +65,24 @@ jobs:
       - name: Check number of k8s objects created by operator
         id: getobjects
         run: |
+          set -x
           test "4" = "$(kubectl get pvc -n ${{env.tackle_ns}} -o name | wc -l)"
           test "10" = "$(kubectl get pods -n ${{env.tackle_ns}} -o name | wc -l)"
           test "9" = "$(kubectl get service -n ${{env.tackle_ns}} -o name | wc -l)"
           test "10" = "$(kubectl get deployments -n ${{env.tackle_ns}} -o name | wc -l)"
-        shell: bash {0} -x -e
+        shell: bash
 
       - name: All pods are ok ?
         id: checkpods
-        shell: bash {0} -x -e
+        shell: bash
         run: |
+          set -x
           test "10" = "$(kubectl get pods -n ${{env.tackle_ns}} -o json  | jq -r '.items[] | select(.status.phase == "Running" or ([ .status.conditions[] | select(.type == "Ready" and .status == true) ] | length ) == 1 ) | .metadata.namespace + "/" + .metadata.name' | wc -l)"
 
       - name: Do requests to check services are OK
         id: checkservices
         run: |
+          set -x
           minikube_ip=$(minikube ip)
           access_token=$(curl -X POST http://$minikube_ip/auth/realms/tackle/protocol/openid-connect/token \
               --user backend-service:secret -H 'content-type: application/x-www-form-urlencoded' \
