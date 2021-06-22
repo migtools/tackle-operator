@@ -34,8 +34,9 @@ jobs:
               -Dquarkus.container-image.build=true  \
               -Dquarkus.container-image.tag=test \
               -Dquarkus.container-image.push=false \
-              -Dquarkus.container-image.group=konveyor
-          minikube image load konveyor/tackle-operator:test
+              -Dquarkus.container-image.group=konveyor \
+              -Dquarkus.container-image.registry=quay.io
+          minikube image load quay.io/konveyor/tackle-operator:test
 
       - name: Deploy operator
         run: |
@@ -43,7 +44,7 @@ jobs:
           cd src/main/resources/k8s
           kubectl create namespace ${{env.tackle_ns}}
           kubectl apply -f crds/crds.yaml -n ${{env.tackle_ns}}
-          kubectl apply -f operator.yaml -n ${{env.tackle_ns}}
+          sed "s/{user}/konveyor/g" operator.yaml | kubectl apply -n ${{env.tackle_ns}} -f -
 
       - name: Sleep for 10 seconds to allow operator to start
         uses: jakejarvis/wait-action@master
