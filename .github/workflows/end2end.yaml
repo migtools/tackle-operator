@@ -83,7 +83,7 @@ jobs:
         run: |
           set -x
           kubectl get pods -n ${{env.tackle_ns}}
-          test "10" = "$(kubectl get pods -n ${{env.tackle_ns}} -o json  | jq -r '.items[] | select(.status.phase == "Running" and ([ .status.conditions[] | select(.type == "Ready" and .status == true) ] | length ) == 1 ) | .metadata.namespace + "/" + .metadata.name' | wc -l)"
+          test "10" = "$(kubectl get pods -n ${{env.tackle_ns}} -o json  | jq -r '.items[] | select(.status.phase == "Running" and ([ .status.conditions[] | select(.type == "Ready" and .status == "True") ] | length ) == 1 ) | .metadata.namespace + "/" + .metadata.name' | wc -l)"
 
       - name: Do requests to check services are OK
         id: checkservices
