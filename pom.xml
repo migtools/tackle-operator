@@ -37,7 +37,7 @@
     <dependency>
       <groupId>io.quarkiverse.operatorsdk</groupId>
       <artifactId>quarkus-operator-sdk</artifactId>
-      <version>1.8.4</version>
+      <version>1.9.4</version>
     </dependency>
     <dependency>
       <groupId>org.apache.commons</groupId>
@@ -47,6 +47,18 @@
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-junit5</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.awaitility</groupId>
+      <artifactId>awaitility</artifactId>
+      <version>4.0.3</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.fabric8</groupId>
+      <artifactId>kubernetes-server-mock</artifactId>
+      <version>5.3.1</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
