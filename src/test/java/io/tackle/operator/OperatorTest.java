@@ -45,9 +45,10 @@ public class OperatorTest {
         tackleResource.getMetadata().setUid("uid: 4e4d714c-6d27-41e1-86df-4a58900ca5d0");
     }
 
-    @BeforeEach
-    public void clean() {
+    @Test
+    public void onAddCR_shouldServerReceiveExactCalls() {
         operator.start();
+
         NonNamespaceOperation<Tackle, KubernetesResourceList<Tackle>, Resource<Tackle>> resource = client.customResources(Tackle.class).inNamespace(testNamespace);
         if (resource.withName(testApp).get() != null) {
             resource.withName(testApp).delete();
@@ -61,10 +62,7 @@ public class OperatorTest {
             loadWindupResource();
         }
         resource.create(this.tackleResource);
-    }
 
-    @Test
-    public void onAddCR_shouldServerReceiveExactCalls() {
         Awaitility
             .await()
             .atMost(20, TimeUnit.SECONDS)
