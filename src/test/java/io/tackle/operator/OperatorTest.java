@@ -5,17 +5,18 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.NonNamespaceOperation;
 import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.kubernetes.client.utils.Serialization;
+import io.javaoperatorsdk.operator.Operator;
 import io.quarkus.test.junit.QuarkusTest;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.wildfly.common.Assert;
 
 import javax.inject.Inject;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 @QuarkusTest
@@ -28,6 +29,9 @@ public class OperatorTest {
 
     @Inject
     KubernetesCrudRecorderDispatcher dispatcher;
+
+    @Inject
+    Operator operator;
 
     @Inject
     KubernetesClient client;
@@ -43,6 +47,7 @@ public class OperatorTest {
 
     @BeforeEach
     public void clean() {
+        operator.start();
         NonNamespaceOperation<Tackle, KubernetesResourceList<Tackle>, Resource<Tackle>> resource = client.customResources(Tackle.class).inNamespace(testNamespace);
         if (resource.withName(testApp).get() != null) {
             resource.withName(testApp).delete();
@@ -60,7 +65,7 @@ public class OperatorTest {
 
     @Test
     public void onAddCR_shouldServerReceiveExactCalls() {
-       /* Awaitility
+        Awaitility
             .await()
             .atMost(20, TimeUnit.SECONDS)
             .untilAsserted(() -> {
@@ -69,8 +74,6 @@ public class OperatorTest {
                 assertEquals(9, dispatcher.getRequests().stream().filter(e-> "POST".equalsIgnoreCase(e.method) && e.path.contains("deployments") ).count());
                 assertEquals(9, dispatcher.getRequests().stream().filter(e-> "POST".equalsIgnoreCase(e.method) && e.path.contains("service")).count());
             });
-        */
-        Assert.assertFalse(false);
     }
 
 }
