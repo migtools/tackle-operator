@@ -21,7 +21,7 @@ spec:
       labels:
         app.kubernetes.io/name: tackle-operator
     spec:
-      serviceAccount: tackle-operator
+      serviceAccountName: tackle-operator
       containers:
       - name: tackle-operator
         image: quay.io/{user}/tackle-operator:1.0.0-SNAPSHOT-native
@@ -51,7 +51,6 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: tackle-operator
-  namespace: tackle-operator
 roleRef:
   kind: Role
   name: tackle-operator
