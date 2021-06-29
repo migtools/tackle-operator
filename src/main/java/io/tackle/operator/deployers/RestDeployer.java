@@ -1,15 +1,18 @@
 package io.tackle.operator.deployers;
 
 import io.fabric8.kubernetes.api.model.EnvVar;
+import io.fabric8.kubernetes.api.model.EnvVarBuilder;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.tackle.operator.Tackle;
+import io.tackle.operator.TackleController;
 import org.jboss.logging.Logger;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 import java.util.List;
+import java.util.Map;
 
 import static io.tackle.operator.Utils.LABEL_NAME;
 import static io.tackle.operator.Utils.addOpenshiftAnnotationConnectsTo;
@@ -26,12 +29,14 @@ public class RestDeployer {
 
     public void createOrUpdateResource(Tackle tackle,
                                        String creatorName,
+                                       String microserviceSuffix,
                                        String image,
                                        String oidcAuthServerUrl,
                                        String contextRoot,
                                        String postgreSQLName,
                                        String postgreSQLSchema,
-                                       List<String> annotationConnectsTo) {
+                                       List<String> annotationConnectsTo,
+                                       Map<String, String> microservicesDeployed) {
         final String namespace = tackle.getMetadata().getNamespace();
         final String name = metadataName(creatorName, RESOURCE_NAME_SUFFIX);
         log.infof("Execution createOrUpdateResource for '%s' in namespace '%s'", name, namespace);
@@ -61,6 +66,12 @@ public class RestDeployer {
         envs.get(2).getValueFrom().getSecretKeyRef().setName(postgreSQLName);
         envs.get(3).getValueFrom().getSecretKeyRef().setName(postgreSQLName);
         envs.get(4).setValue(oidcAuthServerUrl);
+        if (TackleController.APPLICATION_INVENTORY.equals(microserviceSuffix)) {
+            envs.add(5, new EnvVarBuilder()
+                    .withName("IO_TACKLE_APPLICATIONINVENTORY_SERVICES_CONTROLS_SERVICE")
+                    .withValue(String.format("%s-%s:8080", microservicesDeployed.get(TackleController.CONTROLS), RESOURCE_NAME_SUFFIX))
+                    .build());
+        }
         deployment
                 .getSpec()
                 .getTemplate()

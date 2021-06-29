@@ -8,6 +8,7 @@ import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static io.tackle.operator.Utils.metadataName;
 
@@ -29,7 +30,8 @@ public class MicroserviceDeployer {
                                          String oidcAuthServerUrl,
                                          String databaseSchema,
                                          String contextRoot,
-                                         List<String> annotationConnectsTo) {
+                                         List<String> annotationConnectsTo,
+                                         Map<String, String> microservicesDeployed) {
         final String namespace = tackle.getMetadata().getNamespace();
         final String name = metadataName(tackle, microserviceSuffix);
 
@@ -41,12 +43,14 @@ public class MicroserviceDeployer {
         final List<String> connectsTo = new ArrayList<>(annotationConnectsTo);
         connectsTo.add(postgreSQLName);
         restDeployer.createOrUpdateResource(tackle, name,
+                microserviceSuffix,
                 restImage,
                 oidcAuthServerUrl,
                 contextRoot,
                 postgreSQLName,
                 databaseSchema,
-                connectsTo);
+                connectsTo,
+                microservicesDeployed);
 
         return name;
     }
