@@ -24,6 +24,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -34,6 +35,11 @@ import static io.tackle.operator.Utils.CONDITION_TYPE_READY;
 public class TackleController implements ResourceController<Tackle> {
 
     private final Logger log = Logger.getLogger(getClass());
+    public static final String KEYCLOAK = "keycloak";
+    public static final String CONTROLS = "controls";
+    public static final String APPLICATION_INVENTORY = "application-inventory";
+    public static final String PATHFINDER = "pathfinder";
+
     @Inject
     KubernetesClient kubernetesClient;
     @Inject
@@ -108,36 +114,37 @@ public class TackleController implements ResourceController<Tackle> {
         }
         else log.info("Tackle resource without spec: default configuration will be applied");
 
+        final Map<String, String> microservicesDeployed = new HashMap<>(4);
         // deploy Keycloak instance
         log.infof("Deploying Keycloak for '%s' in namespace '%s'", name, namespace);
-        final String keycloakName = keycloakDeployer.createOrUpdateResource(tackle, keycloakImage, keycloakDbImage);
-        final String tackleRealmUrl = String.format("http://%s:8080/auth/realms/tackle", keycloakName);
-        final List<String> annotationConnectToKeycloak = List.of(keycloakName);
+        microservicesDeployed.put(KEYCLOAK, keycloakDeployer.createOrUpdateResource(tackle, keycloakImage, keycloakDbImage));
+        final String tackleRealmUrl = String.format("http://%s:8080/auth/realms/tackle", microservicesDeployed.get(KEYCLOAK));
+        final List<String> annotationConnectToKeycloak = List.of(microservicesDeployed.get(KEYCLOAK));
 
         // deploy microservices
-        log.infof("Deploying Application Inventory for '%s' in namespace '%s'", name, namespace);
-        final String applicationInventoryName = microserviceDeployer.createOrUpdateResource(tackle, "application-inventory", applicationInventoryImage, applicationInventoryDbImage,
-                tackleRealmUrl, "application_inventory_db", "application-inventory", annotationConnectToKeycloak);
-
         log.infof("Deploying Controls for '%s' in namespace '%s'", name, namespace);
-        final String controlsName = microserviceDeployer.createOrUpdateResource(tackle, "controls", controlsImage, controlsDbImage,
-                tackleRealmUrl, "controls_db", "controls", annotationConnectToKeycloak);
+        microservicesDeployed.put(CONTROLS, microserviceDeployer.createOrUpdateResource(tackle, CONTROLS, controlsImage, controlsDbImage,
+                tackleRealmUrl, "controls_db", "controls", annotationConnectToKeycloak, Collections.unmodifiableMap(microservicesDeployed)));
+
+        log.infof("Deploying Application Inventory for '%s' in namespace '%s'", name, namespace);
+        microservicesDeployed.put(APPLICATION_INVENTORY, microserviceDeployer.createOrUpdateResource(tackle, APPLICATION_INVENTORY, applicationInventoryImage, applicationInventoryDbImage,
+                tackleRealmUrl, "application_inventory_db", "application-inventory", annotationConnectToKeycloak, Collections.unmodifiableMap(microservicesDeployed)));
 
         log.infof("Deploying Pathfinder for '%s' in namespace '%s'", name, namespace);
-        final String pathfinderName = microserviceDeployer.createOrUpdateResource(tackle, "pathfinder", pathfinderImage, pathfinderDbImage,
-                tackleRealmUrl, "pathfinder_db", "pathfinder", annotationConnectToKeycloak);
+        microservicesDeployed.put(PATHFINDER, microserviceDeployer.createOrUpdateResource(tackle, PATHFINDER, pathfinderImage, pathfinderDbImage,
+                tackleRealmUrl, "pathfinder_db", "pathfinder", annotationConnectToKeycloak, Collections.unmodifiableMap(microservicesDeployed)));
 
         // deploy the UI instance
         log.infof("Deploying UI for '%s' in namespace '%s'", name, namespace);
-        final String controlsRestName = String.format("%s-rest", controlsName);
-        final String pathfinderRestName = String.format("%s-rest", pathfinderName);
-        final String applicationInventoryRestName = String.format("%s-rest", applicationInventoryName);
+        final String controlsRestName = String.format("%s-rest", microservicesDeployed.get(CONTROLS));
+        final String pathfinderRestName = String.format("%s-rest", microservicesDeployed.get(PATHFINDER));
+        final String applicationInventoryRestName = String.format("%s-rest", microservicesDeployed.get(APPLICATION_INVENTORY));
         uiDeployer.createOrUpdateResource(tackle, uiImage,
                 String.format("http://%s:8080", controlsRestName),
                 String.format("http://%s:8080", applicationInventoryRestName),
                 String.format("http://%s:8080", pathfinderRestName),
-                String.format("http://%s:8080", keycloakName),
-                Arrays.asList(controlsRestName, pathfinderRestName, applicationInventoryRestName, keycloakName));
+                String.format("http://%s:8080", microservicesDeployed.get(KEYCLOAK)),
+                Arrays.asList(controlsRestName, pathfinderRestName, applicationInventoryRestName, microservicesDeployed.get(KEYCLOAK)));
 
         if (status == null) {
             status = new TackleStatus();
