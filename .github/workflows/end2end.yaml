@@ -60,15 +60,15 @@ jobs:
           kubectl apply -f tackle/tackle.yaml -n ${{env.tackle_ns}}
 
       - name: TO-BE-REMOVED List k8s objects on mta namespace
-        run: kubectl get all,ing,pvc,tackle -n ${{env.tackle_ns}}
+        run: sleep 30s && kubectl get all,ing,pvc,tackle -n ${{env.tackle_ns}}
         shell: bash
 
       - name: Verify Tackle CR
         run: |
           cd ${{github.workspace}}/src/main/resources/k8s
-          kubectl wait -f tackle/tackle.yaml --for condition=available --timeout=-1s -n ${{env.tackle_ns}}
+          kubectl wait -f tackle/tackle.yaml --for condition=Ready --timeout=-1s -n ${{env.tackle_ns}}
 
-      - name: List k8s objects on mta namespace
+      - name: List objects in the ${{env.tackle_ns}} namespace
         id: listobjects
         run: kubectl get all,ing,pvc,tackle -n ${{env.tackle_ns}} -o name
         shell: bash
