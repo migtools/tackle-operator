@@ -1,0 +1,121 @@
+name: Tackle Operator E2E Tests
+
+on: [pull_request,push]
+
+jobs:
+  minikube:
+    name: K8S
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        kubernetes_version: [v1.19.14, v1.20.10, v1.21.4]
+      fail-fast: false
+    env:
+      tackle_ns: tackle
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2.0.0
+
+      - name: Setup Minikube-Kubernetes
+        uses: manusa/actions-setup-minikube@v2.4.2
+        with:
+          minikube version: v1.22.0
+          kubernetes version: ${{ matrix.kubernetes_version }}
+          github token: ${{ secrets.GITHUB_TOKEN }}
+          start args: ' --force --addons=ingress'
+
+      - name: Setup Java 11
+        uses: actions/setup-java@v2
+        with:
+          java-version: '11'
+          distribution: 'adopt'
+          java-package: jdk
+
+      - name: Build operator image and push it to the minikube docker host
+        run: |
+          cd ${{github.workspace}}
+          ./mvnw clean package -Pnative -DskipTests \
+              -Dquarkus.native.container-build=true \
+              -Dquarkus.native.container-runtime=docker \
+              -Dquarkus.container-image.build=true  \
+              -Dquarkus.container-image.tag=test \
+              -Dquarkus.container-image.push=false \
+              -Dquarkus.container-image.group=konveyor \
+              -Dquarkus.container-image.registry=quay.io
+          minikube image load quay.io/konveyor/tackle-operator:test
+
+      - name: Deploy operator
+        run: |
+          cd ${{github.workspace}}/src/main/resources/k8s
+          kubectl create namespace ${{env.tackle_ns}}
+          kubectl apply -f crds/crds.yaml -n ${{env.tackle_ns}}
+          sed "s/{user}/konveyor/g" operator.yaml | kubectl apply -n ${{env.tackle_ns}} -f -
+
+      - name: Verify operator
+        run: kubectl wait deployment/tackle-operator --for condition=available --timeout=-1s -n ${{env.tackle_ns}}
+
+      - name: Create Tackle CR
+        run: |
+          cd ${{github.workspace}}/src/main/resources/k8s
+          kubectl apply -f tackle/tackle.yaml -n ${{env.tackle_ns}}
+
+      - name: Verify Tackle CR
+        run: |
+          cd ${{github.workspace}}/src/main/resources/k8s
+          kubectl wait -f tackle/tackle.yaml --for condition=Ready --timeout=-1s -n ${{env.tackle_ns}}
+
+      - name: List objects in the ${{env.tackle_ns}} namespace
+        id: listobjects
+        run: kubectl get all,ing,pvc,tackle -n ${{env.tackle_ns}} -o name
+        shell: bash
+
+      - name: Check number of k8s objects created by operator
+        id: getobjects
+        run: |
+          set -x
+          test "4" = "$(kubectl get pvc -n ${{env.tackle_ns}} -o name | wc -l)"
+          test "10" = "$(kubectl get pods -n ${{env.tackle_ns}} -o name | wc -l)"
+          test "9" = "$(kubectl get service -n ${{env.tackle_ns}} -o name | wc -l)"
+          test "10" = "$(kubectl get deployments -n ${{env.tackle_ns}} -o name | wc -l)"
+          test "1" = "$(kubectl get ing -n ${{env.tackle_ns}} -o name | wc -l)"
+        shell: bash
+
+      - name: Verify keycloak
+        run: kubectl wait deployment/tackle-sample-keycloak --for condition=available --timeout=-1s -n ${{env.tackle_ns}}
+      - name: Verify tackle-controls
+        run: kubectl wait deployment/tackle-sample-controls-rest --for condition=available --timeout=-1s -n ${{env.tackle_ns}}
+      - name: Verify tackle-application-inventory
+        run: kubectl wait deployment/tackle-sample-application-inventory-rest --for condition=available --timeout=-1s -n ${{env.tackle_ns}}
+      - name: Verify tackle-pathfinder
+        run: kubectl wait deployment/tackle-sample-pathfinder-rest --for condition=available --timeout=-1s -n ${{env.tackle_ns}}
+      - name: Verify tackle-ui
+        run: kubectl wait deployment/tackle-sample-ui --for condition=available --timeout=-1s -n ${{env.tackle_ns}}
+
+      - name: All pods are ok ?
+        id: checkpods
+        shell: bash
+        run: |
+          set -x
+          kubectl get pods -n ${{env.tackle_ns}}
+          test "10" = "$(kubectl get pods -n ${{env.tackle_ns}} -o json  | jq -r '.items[] | select(.status.phase == "Running" and ([ .status.conditions[] | select(.type == "Ready" and .status == "True") ] | length ) == 1 ) | .metadata.namespace + "/" + .metadata.name' | wc -l)"
+
+      - name: Do requests to check services are OK
+        id: checkservices
+        run: |
+          set -x
+          minikube_ip=$(minikube ip)
+          access_token=$(curl -X POST http://$minikube_ip/auth/realms/tackle/protocol/openid-connect/token \
+              --user backend-service:secret -H 'content-type: application/x-www-form-urlencoded' \
+              -d 'username=tackle&password=password&grant_type=password' | jq --raw-output '.access_token' )
+          test "200" = "$(curl --write-out "%{http_code}\n" --silent --output /dev/null -X GET "http://$minikube_ip:/pathfinder/assessments/risk" \
+                      -d "[{'applicationId':1}]" \
+                      -H "Content-Type: application/json" -H "Accept: application/json" -H "Authorization: Bearer $access_token")"
+
+          test "200" = "$(curl --write-out "%{http_code}\n" --silent --output /dev/null -X GET "http://$minikube_ip/application_inventory/adoptionplan" \
+                      -d "[{'applicationId':1}]" \
+                      -H "Content-Type: application/json" -H "Accept: application/json" -H "Authorization: Bearer $access_token")"
+
+          test "200" = "$(curl --write-out "%{http_code}\n" --silent --output /dev/null -X GET "http://$minikube_ip/controls/business-service" \
+                      -H "Content-Type: application/json" -H "Accept: application/json" -H "Authorization: Bearer $access_token")"
+        shell: bash
+

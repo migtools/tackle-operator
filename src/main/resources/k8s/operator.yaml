@@ -51,7 +51,6 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: tackle-operator
-  namespace: tackle-operator
 roleRef:
   kind: Role
   name: tackle-operator
