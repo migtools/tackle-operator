@@ -66,6 +66,11 @@ jobs:
         with:
           time: '30s'
 
+      - name: List k8s objects on mta namespace
+        id: listobjects
+        run: kubectl get all,ing,pvc -n ${{env.tackle_ns}} -o name
+        shell: bash
+
       - name: Check number of k8s objects created by operator
         id: getobjects
         run: |
@@ -74,6 +79,7 @@ jobs:
           test "10" = "$(kubectl get pods -n ${{env.tackle_ns}} -o name | wc -l)"
           test "9" = "$(kubectl get service -n ${{env.tackle_ns}} -o name | wc -l)"
           test "10" = "$(kubectl get deployments -n ${{env.tackle_ns}} -o name | wc -l)"
+          test "1" = "$(kubectl get ing -n ${{env.tackle_ns}} -o name | wc -l)"
         shell: bash
 
       - name: Sleep for 120 seconds to allow objects to be created
