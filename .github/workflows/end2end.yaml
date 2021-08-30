@@ -6,6 +6,10 @@ jobs:
   minikube:
     name: K8S
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        kubernetes_version: [v1.19.14, v1.20.10, v1.21.4, v1.22.1]
+      fail-fast: false
     env:
       tackle_ns: tackle
     steps:
@@ -15,8 +19,8 @@ jobs:
       - name: Setup Minikube-Kubernetes
         uses: manusa/actions-setup-minikube@v2.4.2
         with:
-          minikube version: v1.21.0
-          kubernetes version: 'v1.21.0'
+          minikube version: v1.22.0
+          kubernetes version: ${{ matrix.kubernetes_version }}
           github token: ${{ secrets.GITHUB_TOKEN }}
           start args: ' --force --addons=ingress'
 
@@ -42,8 +46,7 @@ jobs:
 
       - name: Deploy operator
         run: |
-          cd ${{github.workspace}}
-          cd src/main/resources/k8s
+          cd ${{github.workspace}}/src/main/resources/k8s
           kubectl create namespace ${{env.tackle_ns}}
           kubectl apply -f crds/crds.yaml -n ${{env.tackle_ns}}
           sed "s/{user}/konveyor/g" operator.yaml | kubectl apply -n ${{env.tackle_ns}} -f -
@@ -55,8 +58,7 @@ jobs:
 
       - name: Create tackle
         run: |
-          cd ${{github.workspace}}
-          cd src/main/resources/k8s
+          cd ${{github.workspace}}/src/main/resources/k8s
           kubectl apply -f tackle/tackle.yaml -n ${{env.tackle_ns}}
 
       - name: Sleep for 30 seconds to allow objects to be created
@@ -74,7 +76,7 @@ jobs:
           test "10" = "$(kubectl get deployments -n ${{env.tackle_ns}} -o name | wc -l)"
         shell: bash
 
-      - name: Sleep for 30 seconds to allow objects to be created
+      - name: Sleep for 120 seconds to allow objects to be created
         uses: jakejarvis/wait-action@master
         with:
           time: '120s'
