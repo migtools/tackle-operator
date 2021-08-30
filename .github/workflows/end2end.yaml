@@ -84,6 +84,17 @@ jobs:
         run: sleep 120s
         shell: bash
 
+      - name: Verify keycloak
+        run: kubectl wait deployment/keycloak --for condition=available --timeout=-1s -n ${{env.tackle_ns}}
+      - name: Verify tackle-controls
+        run: kubectl wait deployment/tackle-controls --for condition=available --timeout=-1s -n ${{env.tackle_ns}}
+      - name: Verify tackle-application-inventory
+        run: kubectl wait deployment/tackle-application-inventory --for condition=available --timeout=-1s -n ${{env.tackle_ns}}
+      - name: Verify tackle-pathfinder
+        run: kubectl wait deployment/tackle-pathfinder --for condition=available --timeout=-1s -n ${{env.tackle_ns}}
+      - name: Verify tackle-ui
+        run: kubectl wait deployment/tackle-ui --for condition=available --timeout=-1s -n ${{env.tackle_ns}}
+
       - name: All pods are ok ?
         id: checkpods
         shell: bash
