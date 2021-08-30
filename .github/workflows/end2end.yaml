@@ -54,14 +54,18 @@ jobs:
       - name: Verify operator
         run: kubectl wait deployment/tackle-operator --for condition=available --timeout=-1s -n ${{env.tackle_ns}}
 
-      - name: Create tackle
+      - name: Create Tackle CR
         run: |
           cd ${{github.workspace}}/src/main/resources/k8s
           kubectl apply -f tackle/tackle.yaml -n ${{env.tackle_ns}}
 
-      - name: Sleep for 30 seconds to allow objects to be created
-        run: sleep 30s
+      - name: TO-BE-REMOVED List k8s objects on mta namespace
+        id: listobjects
+        run: kubectl get all,ing,pvc -n ${{env.tackle_ns}}
         shell: bash
+
+      - name: Verify Tackle CR
+        run: kubectl wait -f tackle/tackle.yaml --for condition=available --timeout=-1s -n ${{env.tackle_ns}}
 
       - name: List k8s objects on mta namespace
         id: listobjects
