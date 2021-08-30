@@ -31,23 +31,18 @@ jobs:
           distribution: 'adopt'
           java-package: jdk
 
-#      - name: Build operator image and push it to the minikube docker host
-#        run: |
-#          cd ${{github.workspace}}
-#          ./mvnw clean package -Pnative -DskipTests \
-#              -Dquarkus.native.container-build=true \
-#              -Dquarkus.native.container-runtime=docker \
-#              -Dquarkus.container-image.build=true  \
-#              -Dquarkus.container-image.tag=test \
-#              -Dquarkus.container-image.push=false \
-#              -Dquarkus.container-image.group=konveyor \
-#              -Dquarkus.container-image.registry=quay.io
-#          minikube image load quay.io/konveyor/tackle-operator:test
-
-      - name: TO-BE-REMOVED Pull operator image and push it to the minikube docker host
+      - name: Build operator image and push it to the minikube docker host
         run: |
-          docker pull quay.io/konveyor/tackle-operator:latest-native
-          minikube image load quay.io/konveyor/tackle-operator:latest-native
+          cd ${{github.workspace}}
+          ./mvnw clean package -Pnative -DskipTests \
+              -Dquarkus.native.container-build=true \
+              -Dquarkus.native.container-runtime=docker \
+              -Dquarkus.container-image.build=true  \
+              -Dquarkus.container-image.tag=test \
+              -Dquarkus.container-image.push=false \
+              -Dquarkus.container-image.group=konveyor \
+              -Dquarkus.container-image.registry=quay.io
+          minikube image load quay.io/konveyor/tackle-operator:test
 
       - name: Deploy operator
         run: |
