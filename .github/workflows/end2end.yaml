@@ -64,10 +64,6 @@ jobs:
           cd ${{github.workspace}}/src/main/resources/k8s
           kubectl apply -f tackle/tackle.yaml -n ${{env.tackle_ns}}
 
-      - name: TO-BE-REMOVED List k8s objects on mta namespace
-        run: sleep 30s && kubectl get all,ing,pvc,tackle -n ${{env.tackle_ns}}
-        shell: bash
-
       - name: Verify Tackle CR
         run: |
           cd ${{github.workspace}}/src/main/resources/k8s
