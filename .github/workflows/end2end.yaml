@@ -51,9 +51,8 @@ jobs:
           kubectl apply -f crds/crds.yaml -n ${{env.tackle_ns}}
           sed "s/{user}/konveyor/g" operator.yaml | kubectl apply -n ${{env.tackle_ns}} -f -
 
-      - name: Sleep for 10 seconds to allow operator to start
-        run: sleep 10s
-        shell: bash
+      - name: Verify operator
+        run: kubectl wait deployment/tackle-operator --for condition=available --timeout=-1s -n ${{env.tackle_ns}}
 
       - name: Create tackle
         run: |
