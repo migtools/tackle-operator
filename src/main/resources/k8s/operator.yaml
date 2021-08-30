@@ -23,26 +23,26 @@ spec:
     spec:
       serviceAccount: tackle-operator
       containers:
-        - name: tackle-operator
-          image: quay.io/{user}/tackle-operator:1.0.0-SNAPSHOT-native
-          imagePullPolicy: Always
-          env:
-            - name: JAVA_OPERATOR_SDK_CHECK_CRD
-              value: 'false'
-          ports:
-            - containerPort: 80
-          readinessProbe:
-            httpGet:
-              path: /q/health
-              port: 8080
-            initialDelaySeconds: 1
-            timeoutSeconds: 1
-          livenessProbe:
-            httpGet:
-              path: /q/health
-              port: 8080
-            initialDelaySeconds: 30
-            timeoutSeconds: 1
+      - name: tackle-operator
+        image: quay.io/{user}/tackle-operator:1.0.0-SNAPSHOT-native
+        imagePullPolicy: Always
+        env:
+          - name: JAVA_OPERATOR_SDK_CHECK_CRD
+            value: 'false'
+        ports:
+          - containerPort: 80
+        readinessProbe:
+          httpGet:
+            path: /q/health
+            port: 8080
+          initialDelaySeconds: 1
+          timeoutSeconds: 1
+        livenessProbe:
+          httpGet:
+            path: /q/health
+            port: 8080
+          initialDelaySeconds: 30
+          timeoutSeconds: 1
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
