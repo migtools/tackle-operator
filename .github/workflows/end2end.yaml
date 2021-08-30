@@ -52,9 +52,8 @@ jobs:
           sed "s/{user}/konveyor/g" operator.yaml | kubectl apply -n ${{env.tackle_ns}} -f -
 
       - name: Sleep for 10 seconds to allow operator to start
-        uses: jakejarvis/wait-action@master
-        with:
-          time: '10s'
+        run: sleep 10s
+        shell: bash
 
       - name: Create tackle
         run: |
@@ -62,9 +61,8 @@ jobs:
           kubectl apply -f tackle/tackle.yaml -n ${{env.tackle_ns}}
 
       - name: Sleep for 30 seconds to allow objects to be created
-        uses: jakejarvis/wait-action@master
-        with:
-          time: '30s'
+        run: sleep 30s
+        shell: bash
 
       - name: List k8s objects on mta namespace
         id: listobjects
@@ -83,9 +81,8 @@ jobs:
         shell: bash
 
       - name: Sleep for 120 seconds to allow objects to be created
-        uses: jakejarvis/wait-action@master
-        with:
-          time: '120s'
+        run: sleep 120s
+        shell: bash
 
       - name: All pods are ok ?
         id: checkpods
