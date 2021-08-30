@@ -1,6 +1,6 @@
 #!/bin/sh
 set -x # print commands executed
-set -e # exit immediatly if any command fails
+set -e # exit immediately if any command fails
 
 # Build the operator image locally
 tackle_ns=tackle
@@ -34,6 +34,7 @@ test "4" = "$(kubectl get pvc -n $tackle_ns -o name | wc -l)"
 test "10" = "$(kubectl get pods -n $tackle_ns -o name | wc -l)"
 test "9" = "$(kubectl get service -n $tackle_ns -o name | wc -l)"
 test "10" = "$(kubectl get deployments -n $tackle_ns -o name | wc -l)"
+test "1" = "$(kubectl get ing -n $tackle_ns -o name | wc -l)"
 
 # checking all pods are ready
 test "10" = "$(kubectl get pods -n $tackle_ns -o json  | jq -r '.items[] | select(.status.phase == "Running" and ([ .status.conditions[] | select(.type == "Ready" and .status == "True") ] | length ) == 1 ) | .metadata.namespace + "/" + .metadata.name' | wc -l)"
