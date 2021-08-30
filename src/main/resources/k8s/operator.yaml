@@ -30,7 +30,7 @@ spec:
           - name: JAVA_OPERATOR_SDK_CHECK_CRD
             value: 'false'
         ports:
-          - containerPort: 80
+        - containerPort: 80
         readinessProbe:
           httpGet:
             path: /q/health
