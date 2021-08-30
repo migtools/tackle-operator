@@ -79,10 +79,6 @@ jobs:
           test "1" = "$(kubectl get ing -n ${{env.tackle_ns}} -o name | wc -l)"
         shell: bash
 
-      - name: Sleep for 120 seconds to allow objects to be created
-        run: sleep 120s
-        shell: bash
-
       - name: Verify keycloak
         run: kubectl wait deployment/tackle-sample-keycloak --for condition=available --timeout=-1s -n ${{env.tackle_ns}}
       - name: Verify tackle-controls
