@@ -35,9 +35,9 @@ jobs:
         run: |
           cd ${{github.workspace}}
           ./mvnw clean package -Pnative -DskipTests \
+              -Pcontainer-image \
               -Dquarkus.native.container-build=true \
               -Dquarkus.native.container-runtime=docker \
-              -Dquarkus.container-image.build=true  \
               -Dquarkus.container-image.tag=test \
               -Dquarkus.container-image.push=false \
               -Dquarkus.container-image.group=konveyor \
