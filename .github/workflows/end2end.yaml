@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        kubernetes_version: [v1.19.14, v1.20.10, v1.21.4]
+        kubernetes_version: [v1.19.16, v1.20.13, v1.21.7, v.1.22.4]
       fail-fast: false
     env:
       tackle_ns: tackle
@@ -19,7 +19,7 @@ jobs:
       - name: Setup Minikube-Kubernetes
         uses: manusa/actions-setup-minikube@v2.4.2
         with:
-          minikube version: v1.22.0
+          minikube version: v1.24.0
           kubernetes version: ${{ matrix.kubernetes_version }}
           github token: ${{ secrets.GITHUB_TOKEN }}
           start args: ' --force --addons=ingress'
