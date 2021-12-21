@@ -49,7 +49,7 @@ jobs:
           cd ${{github.workspace}}/src/main/resources/k8s
           kubectl create namespace ${{env.tackle_ns}}
           kubectl apply -f crds/crds.yaml -n ${{env.tackle_ns}}
-          sed "s/{user}/konveyor/g" operator.yaml | kubectl apply -n ${{env.tackle_ns}} -f -
+          sed "s\{user}/tackle-operator:1.0.0-SNAPSHOT-native\konveyor/tackle-operator:test\g" operator.yaml | kubectl apply -n ${{env.tackle_ns}} -f -
 
       - name: Describe the operator
         run: kubectl describe deployment/tackle-operator -n ${{env.tackle_ns}}
