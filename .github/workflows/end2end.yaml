@@ -51,9 +51,6 @@ jobs:
           kubectl apply -f crds/crds.yaml -n ${{env.tackle_ns}}
           sed "s\{user}/tackle-operator:1.0.0-SNAPSHOT-native\konveyor/tackle-operator:test\g" operator.yaml | kubectl apply -n ${{env.tackle_ns}} -f -
 
-      - name: Describe the operator
-        run: kubectl describe deployment/tackle-operator -n ${{env.tackle_ns}}
-
       - name: Verify operator
         run: kubectl wait deployment/tackle-operator --for condition=available --timeout=-1s -n ${{env.tackle_ns}}
 
