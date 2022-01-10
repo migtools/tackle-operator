@@ -96,5 +96,5 @@ spec:
               cpu: "1"
               memory: "1Gi"
             requests:
-              cpu: "250m"
+              cpu: "1"
               memory: "1Gi"
