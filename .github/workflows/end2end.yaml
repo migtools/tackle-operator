@@ -22,7 +22,7 @@ jobs:
           minikube version: v1.23.2
           kubernetes version: ${{ matrix.kubernetes_version }}
           github token: ${{ secrets.GITHUB_TOKEN }}
-          start args: ' --force --addons=ingress'
+          start args: ' --force --addons=ingress --cpus=max'
 
       - name: Setup Java 11
         uses: actions/setup-java@v2
