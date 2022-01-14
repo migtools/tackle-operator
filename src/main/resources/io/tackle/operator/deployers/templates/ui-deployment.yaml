@@ -55,7 +55,13 @@ spec:
               port: 8080
             initialDelaySeconds: 10
             periodSeconds: 5
-          resources: {}
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+            requests:
+              cpu: "10m"
+              memory: "64Mi"
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           imagePullPolicy: Always

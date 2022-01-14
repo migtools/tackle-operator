@@ -46,7 +46,13 @@ spec:
                 secretKeyRef:
                   name: ""
                   key: database-name
-          resources: {}
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+            requests:
+              cpu: "10m"
+              memory: "64Mi"
           livenessProbe:
             exec:
               command:
