@@ -22,7 +22,7 @@ spec:
           emptyDir: {}
       initContainers:
         - name: keycloak-theme
-          image: quay.io/konveyor/tackle-keycloak-init:0.1-SNAPSHOT
+          image: quay.io/konveyor/tackle-keycloak-init:1.2.0
           volumeMounts:
             - name: theme-volume
               mountPath: /deployments
